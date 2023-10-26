@@ -73,9 +73,7 @@ endif()
 if(NOT DEFINED BACKEND)
     set(BACKEND "HIP")   # set default backend to HIP
 else()
-    if("${BACKEND}" STREQUAL "OPENCL" OR "${BACKEND}" STREQUAL "OCL" OR "${BACKEND}" STREQUAL "OpenCL")
-        set(BACKEND "OCL")
-    elseif("${BACKEND}" STREQUAL "HIP" OR "${BACKEND}" STREQUAL "hip")
+    if("${BACKEND}" STREQUAL "HIP" OR "${BACKEND}" STREQUAL "hip")
         set(BACKEND "HIP")
     elseif("${BACKEND}" STREQUAL "host" OR "${BACKEND}" STREQUAL "CPU" OR "${BACKEND}" STREQUAL "cpu")
         set(BACKEND "CPU")
@@ -209,33 +207,6 @@ if("${BACKEND}" STREQUAL "HIP")
         set(BACKEND "CPU")
         message("-- ${Yellow}HIP not found! ${PROJECT_NAME} set to build with CPU backend${ColourReset}")
     endif()
-elseif("${BACKEND}" STREQUAL "OCL")
-    # Find package OpenCL
-    find_package(OpenCL QUIET)
-    if(OpenCL_FOUND)
-        message("-- ${White}${PROJECT_NAME} -- Using OpenCL - LIB:" ${OpenCL_LIBRARIES} "\tInclude:" ${OpenCL_INCLUDE_DIRS}${ColourReset})
-        # Set external flag to notify GPU_SUPPORT and OPENCL backend availability - Compatible with rocAL and MIVisionX
-        add_definitions(-DGPU_SUPPORT)
-        set(RPP_BACKEND_OPENCL 1) # For cmakedefine01 in rpp_backend.h.in
-        add_definitions(-DRPP_BACKEND_OPENCL=${RPP_BACKEND_OPENCL}) # To use RPP_BACKEND_HIP
-        include_directories(${OpenCL_INCLUDE_DIRS} ${OpenCL_INCLUDE_DIRS}/Headers)
-
-        # Add modules
-        set(MODULES_LIST modules)
-        foreach(MOD_NAME ${MODULES_LIST})
-            add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/${MOD_NAME})
-        endforeach(MOD_NAME)
-
-        # Set compiler and flags
-        set(LINK_LIBRARY_LIST ${LINK_LIBRARY_LIST} ${OpenCL_LIBRARIES})
-        add_definitions(-DRPP_CACHE_DIR="${CACHE_DIR}")
-
-        message("-- ${Green}${PROJECT_NAME} set to build with GPU_SUPPORT using OpenCL backend${ColourReset}")
-    else()
-        set(BACKEND "CPU")
-        message("-- ${Yellow}OpenCL not found! ${PROJECT_NAME} falling back to build for CPU backend${ColourReset}")
-    endif()
-
 endif()
 # CPU backend specific settings
 if("${BACKEND}" STREQUAL "CPU")
@@ -285,11 +256,6 @@ if( "${BACKEND}" STREQUAL "HIP")
     target_include_directories(${PROJECT_NAME}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/include/hip
-    )
-elseif( "${BACKEND}" STREQUAL "OCL")
-    target_include_directories(${PROJECT_NAME}
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/include/cl
     )
 endif()
 

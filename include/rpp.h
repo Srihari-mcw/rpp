@@ -31,19 +31,7 @@ THE SOFTWARE.
  * \brief ROCm Performance Primitives - Main.
  */
 
-#include <export.h>
-
-#if RPP_BACKEND_OPENCL
-
-#define CL_TARGET_OPENCL_VERSION 220
-#if defined(__APPLE__) || defined(__MACOSX)
-#include <OpenCL/cl.h>
-#else
-#include <CL/cl.h>
-#endif
-typedef cl_command_queue rppAcceleratorQueue_t;
-
-#elif RPP_BACKEND_HIP
+if RPP_BACKEND_HIP
 
 #include <hip/hip_runtime_api.h>
 typedef hipStream_t rppAcceleratorQueue_t;
@@ -66,9 +54,7 @@ typedef rppHandle_t RppHandle_t;    // Create typedef for RppHandle_t
 #define SHARED_PUBLIC __attribute__ ((visibility ("default")))
 #endif
 
-#include "rppcore.h"
 #include "rppdefs.h"
-#include "rppi.h"
 #include "rppt.h"
 #include "rppversion.h"
 

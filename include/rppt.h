@@ -31,7 +31,6 @@ THE SOFTWARE.
  * \brief ROCm Performance Primitives - Tensor Operations.
  */
 
-#include "rpp.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

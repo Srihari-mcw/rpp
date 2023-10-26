@@ -36,9 +36,6 @@ THE SOFTWARE.
 
 #include <stddef.h>
 #include <cmath>
-#ifdef OCL_COMPILE
-#include <CL/cl.h>
-#endif
 
 #define RPP_MIN_8U      ( 0 )
 #define RPP_MAX_8U      ( 255 )
