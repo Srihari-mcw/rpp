@@ -197,7 +197,7 @@ int main(int argc, char **argv)
     rppHandle_t rpp_handle;
     hipStream_t stream;
     CHECK_RETURN_STATUS(hipStreamCreate(&stream));
-    rppCreateWithBatchSize(&rpp_handle, 1);
+    rppCreateWithStreamAndBatchSize(&rpp_handle, stream, batchSize);
 
     Rpp32f *meanTensor = nullptr, *stdDevTensor = nullptr;
     Rpp32f *meanTensorCPU = nullptr, *stdDevTensorCPU = nullptr;
@@ -257,11 +257,9 @@ int main(int argc, char **argv)
                 if(stdDevTensor == nullptr)
                     CHECK_RETURN_STATUS(hipMalloc(&stdDevTensor, maxSize * batchSize * sizeof(Rpp32f)));
 
-                if(mean == nullptr)
-                    CHECK_RETURN_STATUS(hipMalloc(&mean, 3 * sizeof(Rpp32f)));
+                CHECK_RETURN_STATUS(hipMalloc(&mean, 3 * sizeof(Rpp32f)));
 
-                if(std_dev == nullptr)
-                    CHECK_RETURN_STATUS(hipMalloc(&std_dev, 3 * sizeof(Rpp32f)));
+                CHECK_RETURN_STATUS(hipMalloc(&std_dev, 3 * sizeof(Rpp32f)));
 
                 if(!computeMeanStddev)
                 {
