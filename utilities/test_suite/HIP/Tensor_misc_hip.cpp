@@ -24,6 +24,29 @@ SOFTWARE.
 
 #include "../rpp_test_suite_misc.h"
 
+RpptGenericDesc CreateDesc(Rpp32u batch_size, Rpp32u height, Rpp32u width,
+                           Rpp32u channels) {
+    RpptGenericDesc result;
+
+    result.layout = NHWC;
+    result.dataType = F32;
+    result.numDims = 4;
+    result.offsetInBytes = 0;
+
+    result.dims[0] = batch_size;
+    result.dims[1] = height;
+    result.dims[2] = width;
+    result.dims[3] = channels;
+
+    result.strides[3] = sizeof(Rpp32f);
+    result.strides[2] = result.strides[3] * channels;
+    result.strides[1] = result.strides[2] * width;
+    result.strides[0] = result.strides[1] * height;
+
+    return result;
+}
+
+
 int main(int argc, char **argv)
 {
     // Handle inputs
@@ -108,6 +131,29 @@ int main(int argc, char **argv)
     void *d_inputF32, *d_outputF32;
     CHECK_RETURN_STATUS(hipMalloc(&d_inputF32, bufferSize * sizeof(Rpp32f)));
     CHECK_RETURN_STATUS(hipMalloc(&d_outputF32, bufferSize * sizeof(Rpp32f)));
+
+    Rpp32u batch_size = 1;
+    Rpp32u height = 480;
+    Rpp32u width = 720;
+    Rpp32u channels = 3;
+
+    Rpp32u total_size = batch_size * height * width * channels;
+
+    RppPtr_t input = (RppPtr_t)(calloc(total_size, sizeof(Rpp32f)));
+
+    // Populate input tensor with data which results in non-zero
+    // mean/std_dev.
+    for (int i = 0; i < total_size; i++) {
+        static_cast<Rpp32f *>(input)[i] = static_cast<Rpp32f>(i);
+    }
+
+    RppPtr_t output = (RppPtr_t)(calloc(total_size, sizeof(Rpp32f)));
+
+    void *d_input, *d_output;
+    CHECK_RETURN_STATUS(hipMalloc(&d_input, total_size * sizeof(Rpp32f)));
+    CHECK_RETURN_STATUS(hipMalloc(&d_output, total_size * sizeof(Rpp32f)));
+    CHECK_RETURN_STATUS(hipMemcpy(d_input, input, total_size * sizeof(Rpp32f), hipMemcpyHostToDevice));
+    CHECK_RETURN_STATUS(hipDeviceSynchronize());
 
     // read input data
     if(qaMode)
@@ -202,29 +248,6 @@ int main(int argc, char **argv)
 
                 startWallTime = omp_get_wtime();
 
-                Rpp32u batch_size = 1;
-                Rpp32u height = 480;
-                Rpp32u width = 720;
-                Rpp32u channels = 3;
-
-                Rpp32u total_size = batch_size * height * width * channels;
-
-                RppPtr_t input = (RppPtr_t)(calloc(total_size, sizeof(Rpp32f)));
-
-                // Populate input tensor with data which results in non-zero
-                // mean/std_dev.
-                for (int i = 0; i < total_size; i++) {
-                    static_cast<Rpp32f *>(input)[i] = static_cast<Rpp32f>(i);
-                }
-
-                RppPtr_t output = (RppPtr_t)(calloc(total_size, sizeof(Rpp32f)));
-
-                void *d_input, *d_output;
-                CHECK_RETURN_STATUS(hipMalloc(&d_input, total_size * sizeof(Rpp32f)));
-                CHECK_RETURN_STATUS(hipMalloc(&d_output, total_size * sizeof(Rpp32f)));
-                CHECK_RETURN_STATUS(hipMemcpy(d_input, input, total_size * sizeof(Rpp32f), hipMemcpyHostToDevice));
-                CHECK_RETURN_STATUS(hipDeviceSynchronize());
-
                 RpptGenericDesc src_desc = CreateDesc(batch_size, height, width, channels);
                 RpptGenericDesc dst_desc = CreateDesc(batch_size, height, width, channels);
                 
@@ -279,6 +302,7 @@ int main(int argc, char **argv)
     }
     rppDestroyGPU(handle);
 
+    printf("Error before comparison\n");
     // compare outputs if qaMode is true
     if(qaMode)
     {
@@ -302,6 +326,8 @@ int main(int argc, char **argv)
     CHECK_RETURN_STATUS(hipHostFree(srcDescriptorPtrND));
     CHECK_RETURN_STATUS(hipHostFree(dstDescriptorPtrND));
     CHECK_RETURN_STATUS(hipHostFree(roiTensor));
+    CHECK_RETURN_STATUS(hipFree(d_input));
+    CHECK_RETURN_STATUS(hipFree(d_output));
     CHECK_RETURN_STATUS(hipFree(d_inputF32));
     CHECK_RETURN_STATUS(hipFree(d_outputF32));
     if(meanTensor != nullptr)
