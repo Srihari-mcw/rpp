@@ -24,28 +24,33 @@ SOFTWARE.
 
 #include "../rpp_test_suite_misc.h"
 
-RpptGenericDesc CreateDesc(Rpp32u batch_size, Rpp32u height, Rpp32u width,
+void CreateDesc(RpptGenericDescPtr descriptorPtr3D, Rpp32u batch_size, Rpp32u height, Rpp32u width,
                            Rpp32u channels) {
     RpptGenericDesc result;
 
-    result.layout = NHWC;
-    result.dataType = F32;
-    result.numDims = 4;
-    result.offsetInBytes = 0;
+    descriptorPtr3D->layout = NHWC;
+    descriptorPtr3D->dataType = F32;
+    descriptorPtr3D->numDims = 4;
+    descriptorPtr3D->offsetInBytes = 0;
 
-    result.dims[0] = batch_size;
-    result.dims[1] = height;
-    result.dims[2] = width;
-    result.dims[3] = channels;
+    descriptorPtr3D->dims[0] = batch_size;
+    descriptorPtr3D->dims[1] = height;
+    descriptorPtr3D->dims[2] = width;
+    descriptorPtr3D->dims[3] = channels;
 
-    result.strides[3] = sizeof(Rpp32f);
-    result.strides[2] = result.strides[3] * channels;
-    result.strides[1] = result.strides[2] * width;
-    result.strides[0] = result.strides[1] * height;
+    descriptorPtr3D->strides[3] = sizeof(Rpp32f);
+    descriptorPtr3D->strides[2] = descriptorPtr3D->strides[3] * channels;
+    descriptorPtr3D->strides[1] = descriptorPtr3D->strides[2] * width;
+    descriptorPtr3D->strides[0] = descriptorPtr3D->strides[1] * height;
 
-    return result;
 }
 
+void fill_roi_values_sample(Rpp32u *roi_tensor, Rpp32u height, Rpp32u width,
+                           Rpp32u channels)
+{
+    std::array<Rpp32u, 6> roi = {0, 0, 0, width, height, channels};
+    std::copy(roi.begin(), roi.end(), &roi_tensor[0]);
+}
 
 int main(int argc, char **argv)
 {
@@ -108,10 +113,26 @@ int main(int argc, char **argv)
     CHECK_RETURN_STATUS(hipHostMalloc(&roiTensor, nDim * 2 * batchSize, sizeof(Rpp32u)));
     fill_roi_values(nDim, batchSize, roiTensor, qaMode);
 
+    Rpp32u batch_size = 1;
+    Rpp32u height = 480;
+    Rpp32u width = 720;
+    Rpp32u channels = 3;
+
+    Rpp32u *roi_tensor;
+    CHECK_RETURN_STATUS(hipHostMalloc(&roi_tensor, 6, sizeof(Rpp32u)));
+    fill_roi_values_sample(roi_tensor, width, height, channels);
+
     // set src/dst generic tensor descriptors
     RpptGenericDescPtr srcDescriptorPtrND, dstDescriptorPtrND;
     CHECK_RETURN_STATUS(hipHostMalloc(&srcDescriptorPtrND, sizeof(RpptGenericDesc)));
     CHECK_RETURN_STATUS(hipHostMalloc(&dstDescriptorPtrND, sizeof(RpptGenericDesc)));
+
+    RpptGenericDescPtr src_desc, dst_desc;
+    CHECK_RETURN_STATUS(hipHostMalloc(&src_desc, sizeof(RpptGenericDesc)));
+    CHECK_RETURN_STATUS(hipHostMalloc(&dst_desc, sizeof(RpptGenericDesc)));
+
+    CreateDesc(src_desc, batch_size, height, width, channels);
+    CreateDesc(dst_desc, batch_size, height, width, channels);
 
     // set dims and compute strides
     int bitDepth = 2, offSetInBytes = 0;
@@ -131,11 +152,6 @@ int main(int argc, char **argv)
     void *d_inputF32, *d_outputF32;
     CHECK_RETURN_STATUS(hipMalloc(&d_inputF32, bufferSize * sizeof(Rpp32f)));
     CHECK_RETURN_STATUS(hipMalloc(&d_outputF32, bufferSize * sizeof(Rpp32f)));
-
-    Rpp32u batch_size = 1;
-    Rpp32u height = 480;
-    Rpp32u width = 720;
-    Rpp32u channels = 3;
 
     Rpp32u total_size = batch_size * height * width * channels;
 
@@ -173,13 +189,20 @@ int main(int argc, char **argv)
     if (testCase == 0)
         CHECK_RETURN_STATUS(hipHostMalloc(&permTensor, nDim * sizeof(Rpp32u)));
 
-    rppHandle_t handle;
+    /*rppHandle_t handle;
     hipStream_t stream;
     CHECK_RETURN_STATUS(hipStreamCreate(&stream));
-    rppCreateWithStreamAndBatchSize(&handle, stream, batchSize);
+    rppCreateWithStreamAndBatchSize(&handle, stream, batchSize);*/
+
+    rppHandle_t rpp_handle;
+    hipStream_t stream;
+    CHECK_RETURN_STATUS(hipStreamCreate(&stream));
+    rppCreateWithBatchSize(&rpp_handle, 1);
 
     Rpp32f *meanTensor = nullptr, *stdDevTensor = nullptr;
     Rpp32f *meanTensorCPU = nullptr, *stdDevTensorCPU = nullptr;
+    Rpp32f *meanArr = nullptr, *stdDevArr = nullptr;
+    Rpp32f *mean = nullptr, *std_dev = nullptr;
     bool externalMeanStd = true;
 
     double startWallTime, endWallTime;
@@ -202,7 +225,7 @@ int main(int argc, char **argv)
                 compute_strides(dstDescriptorPtrND);
 
                 startWallTime = omp_get_wtime();
-                rppt_transpose_gpu(d_inputF32, srcDescriptorPtrND, d_outputF32, dstDescriptorPtrND, permTensor, roiTensor, handle);
+                rppt_transpose_gpu(d_inputF32, srcDescriptorPtrND, d_outputF32, dstDescriptorPtrND, permTensor, roiTensor, rpp_handle);
 
                 break;
             }
@@ -234,6 +257,12 @@ int main(int argc, char **argv)
                 if(stdDevTensor == nullptr)
                     CHECK_RETURN_STATUS(hipMalloc(&stdDevTensor, maxSize * batchSize * sizeof(Rpp32f)));
 
+                if(mean == nullptr)
+                    CHECK_RETURN_STATUS(hipMalloc(&mean, 3 * sizeof(Rpp32f)));
+
+                if(std_dev == nullptr)
+                    CHECK_RETURN_STATUS(hipMalloc(&std_dev, 3 * sizeof(Rpp32f)));
+
                 if(!computeMeanStddev)
                 {
                     if(meanTensorCPU == nullptr)
@@ -248,24 +277,14 @@ int main(int argc, char **argv)
 
                 startWallTime = omp_get_wtime();
 
-                RpptGenericDesc src_desc = CreateDesc(batch_size, height, width, channels);
-                RpptGenericDesc dst_desc = CreateDesc(batch_size, height, width, channels);
-                
-
-                Rpp32f mean[3] = {0.0f};
-                Rpp32f std_dev[3] = {0.0f};
                 Rpp32u axis_mask = 3;
                 Rpp8u compute_mean_stddev = 3;
-                Rpp32u roi_tensor[6] = {0, 0, 0, width, height, channels};
-
-                RppHandle_t rpp_handle;
-                rppCreateWithBatchSize(&rpp_handle, 1);
 
                 // Note: Shift is 128 to center at 128 instead of 0, since centering around
                 // 0 will cause underflow on uint8_t.
 
                 //rppt_normalize_gpu(d_inputF32, srcDescriptorPtrND, d_outputF32, dstDescriptorPtrND, axisMask, meanTensor, stdDevTensor, computeMeanStddev, scale, shift, roiTensor, handle);
-                rppt_normalize_gpu(d_input, &src_desc, d_output, &dst_desc, axis_mask, mean,
+                rppt_normalize_gpu(d_input, src_desc, d_output, dst_desc, axis_mask, mean,
                         std_dev, compute_mean_stddev, 1.0f, 128.0f, roi_tensor,
                         rpp_handle);
                 printf("Mean: [%f, %f, %f]\nStandard Deviation: [%f, %f, %f]\n", mean[0],
@@ -282,7 +301,7 @@ int main(int argc, char **argv)
                 testCaseName  = "log";
 
                 startWallTime = omp_get_wtime();
-                rppt_log_gpu(d_inputF32, srcDescriptorPtrND, d_outputF32, dstDescriptorPtrND, roiTensor, handle);
+                rppt_log_gpu(d_inputF32, srcDescriptorPtrND, d_outputF32, dstDescriptorPtrND, roiTensor, rpp_handle);
 
                 break;
             }
@@ -300,7 +319,7 @@ int main(int argc, char **argv)
         minWallTime = std::min(minWallTime, wallTime);
         avgWallTime += wallTime;
     }
-    rppDestroyGPU(handle);
+    rppDestroyGPU(rpp_handle);
 
     printf("Error before comparison\n");
     // compare outputs if qaMode is true
@@ -323,9 +342,14 @@ int main(int argc, char **argv)
 
     free(inputF32);
     free(outputF32);
+    free(input);
+    free(output);
     CHECK_RETURN_STATUS(hipHostFree(srcDescriptorPtrND));
     CHECK_RETURN_STATUS(hipHostFree(dstDescriptorPtrND));
+    CHECK_RETURN_STATUS(hipHostFree(src_desc));
+    CHECK_RETURN_STATUS(hipHostFree(dst_desc));
     CHECK_RETURN_STATUS(hipHostFree(roiTensor));
+    CHECK_RETURN_STATUS(hipHostFree(roi_tensor));
     CHECK_RETURN_STATUS(hipFree(d_input));
     CHECK_RETURN_STATUS(hipFree(d_output));
     CHECK_RETURN_STATUS(hipFree(d_inputF32));
@@ -334,6 +358,10 @@ int main(int argc, char **argv)
         CHECK_RETURN_STATUS(hipFree(meanTensor));
     if(stdDevTensor != nullptr)
         CHECK_RETURN_STATUS(hipFree(stdDevTensor));
+    if(meanTensor != nullptr)
+        CHECK_RETURN_STATUS(hipFree(mean));
+    if(stdDevTensor != nullptr)
+        CHECK_RETURN_STATUS(hipFree(std_dev));
     if (permTensor != nullptr)
         CHECK_RETURN_STATUS(hipHostFree(permTensor));
     if(meanTensorCPU != nullptr)
