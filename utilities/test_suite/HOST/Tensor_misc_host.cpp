@@ -200,7 +200,7 @@ int main(int argc, char **argv)
                     fill_mean_stddev_values(nDim, maxSize, meanTensor, stdDevTensor, qaMode, axisMask, scriptPath);
 
                 startWallTime = omp_get_wtime();
-                /*Rpp32u batch_size = 1;
+                Rpp32u batch_size = 1;
                 Rpp32u height = 480;
                 Rpp32u width = 720;
                 Rpp32u channels = 3;
@@ -218,9 +218,9 @@ int main(int argc, char **argv)
                 Rpp8u compute_mean_stddev = 3;
                 Rpp32u roi_tensor[6] = {0, 0, 0, width, height, channels};
                 RppHandle_t rpp_handle;
-                rppCreateWithBatchSize(&rpp_handle, 1);*/
-                rppt_normalize_host(inputF32, srcDescriptorPtrND, outputF32, dstDescriptorPtrND, axisMask, meanTensor, stdDevTensor, computeMeanStddev, scale, shift, roiTensor, handle);
-                /*rppt_normalize_host(input, &src_desc, output, &dst_desc, axis_mask, mean,
+                rppCreateWithBatchSize(&rpp_handle, 1);
+                //rppt_normalize_host(inputF32, srcDescriptorPtrND, outputF32, dstDescriptorPtrND, axisMask, meanTensor, stdDevTensor, computeMeanStddev, scale, shift, roiTensor, handle);
+                rppt_normalize_host(input, &src_desc, output, &dst_desc, axis_mask, mean,
                         std_dev, compute_mean_stddev, 1.0f, 128.0f, roi_tensor,
                         rpp_handle);
                 printf("Mean: [%f, %f, %f]\nStandard Deviation: [%f, %f, %f]\n", mean[0],
@@ -229,7 +229,7 @@ int main(int argc, char **argv)
                 for (int i = 0; i < 100; i++) {
                     printf("%f, ", static_cast<Rpp32f *>(output)[i]);
                 }
-                printf("\n");*/
+                printf("\n");
                 break;
             }
             case 2:
