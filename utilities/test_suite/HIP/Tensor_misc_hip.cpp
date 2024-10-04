@@ -201,8 +201,57 @@ int main(int argc, char **argv)
                 }
 
                 startWallTime = omp_get_wtime();
-                rppt_normalize_gpu(d_inputF32, srcDescriptorPtrND, d_outputF32, dstDescriptorPtrND, axisMask, meanTensor, stdDevTensor, computeMeanStddev, scale, shift, roiTensor, handle);
 
+                Rpp32u batch_size = 1;
+                Rpp32u height = 480;
+                Rpp32u width = 720;
+                Rpp32u channels = 3;
+
+                Rpp32u total_size = batch_size * height * width * channels;
+
+                RppPtr_t input = (RppPtr_t)(calloc(total_size, sizeof(Rpp32f)));
+
+                // Populate input tensor with data which results in non-zero
+                // mean/std_dev.
+                for (int i = 0; i < total_size; i++) {
+                    static_cast<Rpp32f *>(input)[i] = static_cast<Rpp32f>(i);
+                }
+
+                RppPtr_t output = (RppPtr_t)(calloc(total_size, sizeof(Rpp32f)));
+
+                void *d_input, *d_output;
+                CHECK_RETURN_STATUS(hipMalloc(&d_input, total_size * sizeof(Rpp32f)));
+                CHECK_RETURN_STATUS(hipMalloc(&d_output, total_size * sizeof(Rpp32f)));
+                CHECK_RETURN_STATUS(hipMemcpy(d_input, input, total_size * sizeof(Rpp32f), hipMemcpyHostToDevice));
+                CHECK_RETURN_STATUS(hipDeviceSynchronize());
+
+                RpptGenericDesc src_desc = CreateDesc(batch_size, height, width, channels);
+                RpptGenericDesc dst_desc = CreateDesc(batch_size, height, width, channels);
+                
+
+                Rpp32f mean[3] = {0.0f};
+                Rpp32f std_dev[3] = {0.0f};
+                Rpp32u axis_mask = 3;
+                Rpp8u compute_mean_stddev = 3;
+                Rpp32u roi_tensor[6] = {0, 0, 0, width, height, channels};
+
+                RppHandle_t rpp_handle;
+                rppCreateWithBatchSize(&rpp_handle, 1);
+
+                // Note: Shift is 128 to center at 128 instead of 0, since centering around
+                // 0 will cause underflow on uint8_t.
+
+                //rppt_normalize_gpu(d_inputF32, srcDescriptorPtrND, d_outputF32, dstDescriptorPtrND, axisMask, meanTensor, stdDevTensor, computeMeanStddev, scale, shift, roiTensor, handle);
+                rppt_normalize_gpu(d_input, &src_desc, d_output, &dst_desc, axis_mask, mean,
+                        std_dev, compute_mean_stddev, 1.0f, 128.0f, roi_tensor,
+                        rpp_handle);
+                printf("Mean: [%f, %f, %f]\nStandard Deviation: [%f, %f, %f]\n", mean[0],
+                        mean[1], mean[2], std_dev[0], std_dev[1], std_dev[2]);
+                printf("First 100 values of output:\n");
+                for (int i = 0; i < 100; i++) {
+                    printf("%f, ", static_cast<Rpp32f *>(output)[i]);
+                }
+                printf("\n");
                 break;
             }
             case 2:

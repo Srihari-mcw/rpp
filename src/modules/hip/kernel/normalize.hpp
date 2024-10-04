@@ -1811,6 +1811,8 @@ RppStatus hip_exec_normalize_tensor(T *srcPtr,
     paramShape = reinterpret_cast<Rpp32u*>(handle.GetInitHandle()->mem.mgpu.scratchBufferPinned.floatmem);
     paramStrides = reinterpret_cast<Rpp32u*>(handle.GetInitHandle()->mem.mgpu.scratchBufferPinned.floatmem) + (batchSize * tensorDims);
 
+
+    printf("\nInside normalize hip code\n");
     // do initial preprocessing, compute maxParamVolue and fill the values for paramShape and paramStrides
     Rpp32u maxParamVolume;
     if (tensorDims == 2 || tensorDims == 3)
@@ -1840,6 +1842,7 @@ RppStatus hip_exec_normalize_tensor(T *srcPtr,
     // based on number of dimensions call the corresponding kernel
     if (tensorDims == 2)
     {
+        printf("\nInside tensorDims 2");
         // NHW
         int globalThreads_x = dstGenericDescPtr->dims[2];
         int globalThreads_y = dstGenericDescPtr->dims[1];
@@ -1863,6 +1866,7 @@ RppStatus hip_exec_normalize_tensor(T *srcPtr,
     }
     else if (tensorDims == 3)
     {
+        printf("\nInside tensorDims 3");
         // NDHW
         int globalThreads_x = dstGenericDescPtr->dims[3];
         int globalThreads_y = dstGenericDescPtr->dims[2];
@@ -1916,6 +1920,7 @@ RppStatus hip_exec_normalize_tensor(T *srcPtr,
                            tensorDims,
                            computeStdDev);
     }
+    printf("End of function\n");
 
     return RPP_SUCCESS;
 }

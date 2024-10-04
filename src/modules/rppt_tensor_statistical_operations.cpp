@@ -256,6 +256,7 @@ RppStatus rppt_normalize_host(RppPtr_t srcPtr,
                               Rpp32u *roiTensor,
                               rppHandle_t rppHandle)
 {
+    printf("Normalization\n");
     RppLayoutParams layoutParams;
     Rpp32u tensorDim = srcGenericDescPtr->numDims - 1;
     if (tensorDim == 3 && (srcGenericDescPtr->layout == RpptLayout::NHWC))
@@ -269,6 +270,7 @@ RppStatus rppt_normalize_host(RppPtr_t srcPtr,
 
     if ((srcGenericDescPtr->dataType == RpptDataType::U8) && (dstGenericDescPtr->dataType == RpptDataType::U8))
     {
+        printf("U8 type\n");
         normalize_generic_host_tensor(static_cast<Rpp8u*>(srcPtr) + srcGenericDescPtr->offsetInBytes,
                                       srcGenericDescPtr,
                                       static_cast<Rpp8u*>(dstPtr) + dstGenericDescPtr->offsetInBytes,
@@ -285,6 +287,7 @@ RppStatus rppt_normalize_host(RppPtr_t srcPtr,
     }
     else if ((srcGenericDescPtr->dataType == RpptDataType::F16) && (dstGenericDescPtr->dataType == RpptDataType::F16))
     {
+        printf("F16 type\n");
         normalize_generic_host_tensor(reinterpret_cast<Rpp16f*>(static_cast<Rpp8u*>(srcPtr) + srcGenericDescPtr->offsetInBytes),
                                       srcGenericDescPtr,
                                       reinterpret_cast<Rpp16f*>(static_cast<Rpp8u*>(dstPtr) + dstGenericDescPtr->offsetInBytes),
@@ -301,6 +304,7 @@ RppStatus rppt_normalize_host(RppPtr_t srcPtr,
     }
     else if ((srcGenericDescPtr->dataType == RpptDataType::F32) && (dstGenericDescPtr->dataType == RpptDataType::F32))
     {
+        printf("F32 type\n");
         normalize_f32_f32_host_tensor(reinterpret_cast<Rpp32f*>(static_cast<Rpp8u*>(srcPtr) + srcGenericDescPtr->offsetInBytes),
                                       srcGenericDescPtr,
                                       reinterpret_cast<Rpp32f*>(static_cast<Rpp8u*>(dstPtr) + dstGenericDescPtr->offsetInBytes),
@@ -318,6 +322,7 @@ RppStatus rppt_normalize_host(RppPtr_t srcPtr,
 
     else if ((srcGenericDescPtr->dataType == RpptDataType::I8) && (dstGenericDescPtr->dataType == RpptDataType::I8))
     {
+        printf("I8 type\n");
         normalize_generic_host_tensor(static_cast<Rpp8s*>(srcPtr) + srcGenericDescPtr->offsetInBytes,
                                       srcGenericDescPtr,
                                       static_cast<Rpp8u*>(dstPtr) + dstGenericDescPtr->offsetInBytes,
