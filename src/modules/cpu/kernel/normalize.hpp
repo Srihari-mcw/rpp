@@ -541,6 +541,7 @@ RppStatus normalize_f32_f32_host_tensor(Rpp32f *srcPtr,
     }
 
     omp_set_dynamic(0);
+    printf("Batch Size is %d\n", batchSize);
 #pragma omp parallel for num_threads(numThreads)
     for(int batchCount = 0; batchCount < batchSize; batchCount++)
 	{
@@ -562,10 +563,12 @@ RppStatus normalize_f32_f32_host_tensor(Rpp32f *srcPtr,
 
         if(tensorDims == 2) // Called for audio testcase and for any other 2D case
         {
+            printf("\nGoes inside audio test case\n");
             Rpp32u paramStride[2];
             Rpp32u srcReductionDims[2], srcStride[2];
             if (axisMask == 3)
             {
+                printf("When axisMask is 3\n");
                 srcStride[0] = srcStride[1] = srcGenericDescPtr->strides[2];
                 srcReductionDims[0] = 1;
                 srcReductionDims[1] = length[0] * length[1];
@@ -573,6 +576,7 @@ RppStatus normalize_f32_f32_host_tensor(Rpp32f *srcPtr,
             }
             else if (axisMask == 1)
             {
+                printf("When axisMask is 1\n");
                 srcStride[0] = srcGenericDescPtr->strides[1];
                 srcStride[1] = srcGenericDescPtr->strides[2];
                 srcReductionDims[0] = length[1];
@@ -582,6 +586,7 @@ RppStatus normalize_f32_f32_host_tensor(Rpp32f *srcPtr,
             }
             else if (axisMask == 2)
             {
+                printf("When axisMask is 2\n");
                 srcStride[0] = srcGenericDescPtr->strides[2];
                 srcStride[1] = srcGenericDescPtr->strides[1];
                 srcReductionDims[0] = length[0];
@@ -594,15 +599,18 @@ RppStatus normalize_f32_f32_host_tensor(Rpp32f *srcPtr,
                 compute_2D_mean(srcPtrTemp, meanTensor, srcReductionDims, srcStride);
             if(computeMeanStddev & 2) // Check if stddev is to be computed internally
                 compute_2D_inv_std_dev(srcPtrTemp, meanTensor, stdDevTensor, srcReductionDims, srcStride, scale);
-
+            printf("Before normalize_2D_tensor\n");
             normalize_2D_tensor(srcPtrTemp, srcGenericDescPtr, dstPtrTemp, dstGenericDescPtr, meanTensor, stdDevTensor, shift, length, paramStride);
+            printf("After normalize_2D_tensor\n");
         }
         else if(tensorDims == 3) // Called when a 3D tensor is passed to kernel
         {
+            printf("\nInside tensorDims 3\n");
             Rpp32u paramStride[3];
             Rpp32u srcReductionDims[3], srcStride[3];
             Rpp32u reductionDims;
             bool isConsecutive = true;
+            printf("axisMask is %d\n", axisMask);
             switch(axisMask)
             {
                 case 1: // Normalize axes 0
@@ -699,7 +707,7 @@ RppStatus normalize_f32_f32_host_tensor(Rpp32f *srcPtr,
                     std::cout<<"Invalid Axis mask"<<std::endl;
                 }
             }
-
+            printf("\nEnd of switch case");
             for(Rpp32u i = 1; i < tensorDims; i++)
                 srcPtrChannel += begin[i - 1] * srcGenericDescPtr->strides[i];
 
@@ -714,9 +722,11 @@ RppStatus normalize_f32_f32_host_tensor(Rpp32f *srcPtr,
                 normalize_3D_tensor_nontoggle(srcPtrChannel, srcGenericDescPtr, dstPtrTemp, dstGenericDescPtr, meanTensor, stdDevTensor, shift, paramStride, length);
             else if((axisMask == 3) && (srcGenericDescPtr->layout == RpptLayout::NHWC) && (dstGenericDescPtr->layout == RpptLayout::NCHW))
                 normalize_3D_tensor_axis3_toggle(srcPtrChannel, srcGenericDescPtr, dstPtrTemp, dstGenericDescPtr, meanTensor, stdDevTensor, shift, paramStride, length);
+            printf("\nEnd of case");
         }
         else // Handle any other ND tensor is passed to kernel
         {
+            printf("\nStart of else case\n");
             // Compute length of input tensors as they differ based on axisMask and tensorDims
             int size = 1;
             for(int i = 0; i < tensorDims; i++)
@@ -760,8 +770,10 @@ RppStatus normalize_f32_f32_host_tensor(Rpp32f *srcPtr,
 
             Rpp32u idx = 0;
             normalize_ND_tensor_nontoggle(srcPtrChannel, srcStride, dstPtrTemp, meanTensor, stdDevTensor, shift, paramStride, newDims, newTensorDims, 0, idx);
+            printf("\n");
         }
     }
+    printf("End of normalize f32 f32 function\n");
 
     return RPP_SUCCESS;
 }

@@ -24,6 +24,28 @@ SOFTWARE.
 
 #include "../rpp_test_suite_misc.h"
 
+RpptGenericDesc CreateDesc(Rpp32u batch_size, Rpp32u height, Rpp32u width,
+                           Rpp32u channels) {
+    RpptGenericDesc result;
+
+    result.layout = NHWC;
+    result.dataType = F32;
+    result.numDims = 4;
+    result.offsetInBytes = 0;
+
+    result.dims[0] = batch_size;
+    result.dims[1] = height;
+    result.dims[2] = width;
+    result.dims[3] = channels;
+
+    result.strides[3] = sizeof(Rpp32f);
+    result.strides[2] = result.strides[3] * channels;
+    result.strides[1] = result.strides[2] * width;
+    result.strides[0] = result.strides[1] * height;
+
+    return result;
+}
+
 int main(int argc, char **argv)
 {
     // Handle inputs
@@ -178,8 +200,36 @@ int main(int argc, char **argv)
                     fill_mean_stddev_values(nDim, maxSize, meanTensor, stdDevTensor, qaMode, axisMask, scriptPath);
 
                 startWallTime = omp_get_wtime();
-                rppt_normalize_host(inputF32, srcDescriptorPtrND, outputF32, dstDescriptorPtrND, axisMask, meanTensor, stdDevTensor, computeMeanStddev, scale, shift, roiTensor, handle);
-
+                Rpp32u batch_size = 1;
+                Rpp32u height = 480;
+                Rpp32u width = 720;
+                Rpp32u channels = 3;
+                Rpp32u total_size = batch_size * height * width * channels;
+                RppPtr_t input = (RppPtr_t)(calloc(total_size, sizeof(Rpp32f)));
+                for (int i = 0; i < total_size; i++) {
+                    static_cast<Rpp32f *>(input)[i] = static_cast<Rpp32f>(i);
+                }
+                RppPtr_t output = (RppPtr_t)(calloc(total_size, sizeof(Rpp32f)));
+                RpptGenericDesc src_desc = CreateDesc(batch_size, height, width, channels);
+                RpptGenericDesc dst_desc = CreateDesc(batch_size, height, width, channels);
+                Rpp32f mean[3] = {0.0f};
+                Rpp32f std_dev[3] = {0.0f};
+                Rpp32u axis_mask = 3;
+                Rpp8u compute_mean_stddev = 3;
+                Rpp32u roi_tensor[6] = {0, 0, 0, width, height, channels};
+                RppHandle_t rpp_handle;
+                rppCreateWithBatchSize(&rpp_handle, 1);
+                //rppt_normalize_host(inputF32, srcDescriptorPtrND, outputF32, dstDescriptorPtrND, axisMask, meanTensor, stdDevTensor, computeMeanStddev, scale, shift, roiTensor, handle);
+                rppt_normalize_host(input, &src_desc, output, &dst_desc, axis_mask, mean,
+                        std_dev, compute_mean_stddev, 1.0f, 128.0f, roi_tensor,
+                        rpp_handle);
+                printf("Mean: [%f, %f, %f]\nStandard Deviation: [%f, %f, %f]\n", mean[0],
+                        mean[1], mean[2], std_dev[0], std_dev[1], std_dev[2]);
+                printf("First 100 values of output:\n");
+                for (int i = 0; i < 100; i++) {
+                    printf("%f, ", static_cast<Rpp32f *>(output)[i]);
+                }
+                printf("\n");
                 break;
             }
             case 2:
