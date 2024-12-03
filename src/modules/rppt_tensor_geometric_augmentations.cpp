@@ -773,7 +773,7 @@ RppStatus rppt_resize_mirror_normalize_host(RppPtr_t srcPtr,
     return RPP_SUCCESS;
 }
 
-RppStatus rppt_resize_crop_mirror_host(RppPtr_t srcPtr,
+RppStatus rppt_crop_resize_mirror_host(RppPtr_t srcPtr,
                                        RpptDescPtr srcDescPtr,
                                        RppPtr_t dstPtr,
                                        RpptDescPtr dstDescPtr,
@@ -791,7 +791,7 @@ RppStatus rppt_resize_crop_mirror_host(RppPtr_t srcPtr,
 
     if ((srcDescPtr->dataType == RpptDataType::U8) && (dstDescPtr->dataType == RpptDataType::U8))
     {
-        resize_crop_mirror_u8_u8_host_tensor(static_cast<Rpp8u*>(srcPtr) + srcDescPtr->offsetInBytes,
+        crop_resize_mirror_u8_u8_host_tensor(static_cast<Rpp8u*>(srcPtr) + srcDescPtr->offsetInBytes,
                                              srcDescPtr,
                                              static_cast<Rpp8u*>(dstPtr) + dstDescPtr->offsetInBytes,
                                              dstDescPtr,
@@ -804,7 +804,7 @@ RppStatus rppt_resize_crop_mirror_host(RppPtr_t srcPtr,
     }
     else if ((srcDescPtr->dataType == RpptDataType::F16) && (dstDescPtr->dataType == RpptDataType::F16))
     {
-        resize_crop_mirror_f16_f16_host_tensor((Rpp16f*) (static_cast<Rpp8u*>(srcPtr) + srcDescPtr->offsetInBytes),
+        crop_resize_mirror_f16_f16_host_tensor((Rpp16f*) (static_cast<Rpp8u*>(srcPtr) + srcDescPtr->offsetInBytes),
                                                srcDescPtr,
                                                (Rpp16f*) (static_cast<Rpp8u*>(dstPtr) + dstDescPtr->offsetInBytes),
                                                dstDescPtr,
@@ -817,7 +817,7 @@ RppStatus rppt_resize_crop_mirror_host(RppPtr_t srcPtr,
     }
     else if ((srcDescPtr->dataType == RpptDataType::F32) && (dstDescPtr->dataType == RpptDataType::F32))
     {
-        resize_crop_mirror_f32_f32_host_tensor((Rpp32f*) (static_cast<Rpp8u*>(srcPtr) + srcDescPtr->offsetInBytes),
+        crop_resize_mirror_f32_f32_host_tensor((Rpp32f*) (static_cast<Rpp8u*>(srcPtr) + srcDescPtr->offsetInBytes),
                                                srcDescPtr,
                                                (Rpp32f*) (static_cast<Rpp8u*>(dstPtr) + dstDescPtr->offsetInBytes),
                                                dstDescPtr,
@@ -830,7 +830,7 @@ RppStatus rppt_resize_crop_mirror_host(RppPtr_t srcPtr,
     }
     else if ((srcDescPtr->dataType == RpptDataType::I8) && (dstDescPtr->dataType == RpptDataType::I8))
     {
-        resize_crop_mirror_i8_i8_host_tensor(static_cast<Rpp8s*>(srcPtr) + srcDescPtr->offsetInBytes,
+        crop_resize_mirror_i8_i8_host_tensor(static_cast<Rpp8s*>(srcPtr) + srcDescPtr->offsetInBytes,
                                              srcDescPtr,
                                              static_cast<Rpp8s*>(dstPtr) + dstDescPtr->offsetInBytes,
                                              dstDescPtr,
@@ -1911,9 +1911,9 @@ RppStatus rppt_resize_gpu(RppPtr_t srcPtr,
 #endif // backend
 }
 
-/******************** resize_crop_mirror ********************/
+/******************** crop_resize_mirror ********************/
 
-RppStatus rppt_resize_crop_mirror_gpu(RppPtr_t srcPtr,
+RppStatus rppt_crop_resize_mirror_gpu(RppPtr_t srcPtr,
                                       RpptDescPtr srcDescPtr,
                                       RppPtr_t dstPtr,
                                       RpptDescPtr dstDescPtr,
@@ -1932,7 +1932,7 @@ RppStatus rppt_resize_crop_mirror_gpu(RppPtr_t srcPtr,
 
     if ((srcDescPtr->dataType == RpptDataType::U8) && (dstDescPtr->dataType == RpptDataType::U8))
     {
-        hip_exec_resize_crop_mirror_tensor(static_cast<Rpp8u*>(srcPtr) + srcDescPtr->offsetInBytes,
+        hip_exec_crop_resize_mirror_tensor(static_cast<Rpp8u*>(srcPtr) + srcDescPtr->offsetInBytes,
                                            srcDescPtr,
                                            static_cast<Rpp8u*>(dstPtr) + dstDescPtr->offsetInBytes,
                                            dstDescPtr,
@@ -1944,7 +1944,7 @@ RppStatus rppt_resize_crop_mirror_gpu(RppPtr_t srcPtr,
     }
     else if ((srcDescPtr->dataType == RpptDataType::F16) && (dstDescPtr->dataType == RpptDataType::F16))
     {
-        hip_exec_resize_crop_mirror_tensor((half*)(static_cast<Rpp8u*>(srcPtr) + srcDescPtr->offsetInBytes),
+        hip_exec_crop_resize_mirror_tensor((half*)(static_cast<Rpp8u*>(srcPtr) + srcDescPtr->offsetInBytes),
                                            srcDescPtr,
                                            (half*)(static_cast<Rpp8u*>(dstPtr) + dstDescPtr->offsetInBytes),
                                            dstDescPtr,
@@ -1957,7 +1957,7 @@ RppStatus rppt_resize_crop_mirror_gpu(RppPtr_t srcPtr,
 
     else if ((srcDescPtr->dataType == RpptDataType::F32) && (dstDescPtr->dataType == RpptDataType::F32))
     {
-        hip_exec_resize_crop_mirror_tensor((Rpp32f*)(static_cast<Rpp8u*>(srcPtr) + srcDescPtr->offsetInBytes),
+        hip_exec_crop_resize_mirror_tensor((Rpp32f*)(static_cast<Rpp8u*>(srcPtr) + srcDescPtr->offsetInBytes),
                                            srcDescPtr,
                                            (Rpp32f*)(static_cast<Rpp8u*>(dstPtr) + dstDescPtr->offsetInBytes),
                                            dstDescPtr,
@@ -1969,7 +1969,7 @@ RppStatus rppt_resize_crop_mirror_gpu(RppPtr_t srcPtr,
     }
     else if ((srcDescPtr->dataType == RpptDataType::I8) && (dstDescPtr->dataType == RpptDataType::I8))
     {
-        hip_exec_resize_crop_mirror_tensor(static_cast<Rpp8s*>(srcPtr) + srcDescPtr->offsetInBytes,
+        hip_exec_crop_resize_mirror_tensor(static_cast<Rpp8s*>(srcPtr) + srcDescPtr->offsetInBytes,
                                            srcDescPtr,
                                            static_cast<Rpp8s*>(dstPtr) + dstDescPtr->offsetInBytes,
                                            dstDescPtr,

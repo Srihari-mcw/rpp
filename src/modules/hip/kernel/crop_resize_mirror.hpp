@@ -1,7 +1,7 @@
 #include <hip/hip_runtime.h>
 #include "rpp_hip_common.hpp"
 
-__device__ void resize_crop_mirror_roi_and_srclocs_hip_compute(int4 *srcRoiPtr_i4, uint2 *dstDimsWH, int id_x, int id_y, d_float16 *locSrc_f16)
+__device__ void crop_resize_mirror_roi_and_srclocs_hip_compute(int4 *srcRoiPtr_i4, uint2 *dstDimsWH, int id_x, int id_y, d_float16 *locSrc_f16)
 {
     float wRatio = (float)(srcRoiPtr_i4->z - srcRoiPtr_i4->x + 1) / dstDimsWH->x;
     float hRatio = (float)(srcRoiPtr_i4->w - srcRoiPtr_i4->y + 1) / dstDimsWH->y;
@@ -22,7 +22,7 @@ __device__ void resize_crop_mirror_roi_and_srclocs_hip_compute(int4 *srcRoiPtr_i
     locSrc_f16->f8[1].f4[1] = (locDst_f8y.f4[1] * (float4)hRatio) + hOffset_f4 + (float4)srcRoiPtr_i4->y;  // Compute src y locations in float for dst y locations [4-7]
 }
 
-__device__ void resize_crop_mirror_roi_and_srclocs_hip_compute_mirror(int4 *srcRoiPtr_i4, uint2 *dstDimsWH, int id_x, int id_y, d_float16 *locSrc_f16)
+__device__ void crop_resize_mirror_roi_and_srclocs_hip_compute_mirror(int4 *srcRoiPtr_i4, uint2 *dstDimsWH, int id_x, int id_y, d_float16 *locSrc_f16)
 {
     float wRatio = (float)(srcRoiPtr_i4->z - srcRoiPtr_i4->x + 1) / dstDimsWH->x;
     float hRatio = (float)(srcRoiPtr_i4->w - srcRoiPtr_i4->y + 1) / dstDimsWH->y;
@@ -44,7 +44,7 @@ __device__ void resize_crop_mirror_roi_and_srclocs_hip_compute_mirror(int4 *srcR
 }
 
 template <typename T>
-__global__ void resize_crop_mirror_bilinear_pkd_hip_tensor(T *srcPtr,
+__global__ void crop_resize_mirror_bilinear_pkd_hip_tensor(T *srcPtr,
                                                        uint2 srcStridesNH,
                                                        T *dstPtr,
                                                        uint2 dstStridesNH,
@@ -70,9 +70,9 @@ __global__ void resize_crop_mirror_bilinear_pkd_hip_tensor(T *srcPtr,
     int4 srcRoi_i4 = *(int4 *)&roiTensorPtrSrc[id_z];
     d_float16 locSrc_f16;
     if(mirrorTensor[id_z] == 1)
-        resize_crop_mirror_roi_and_srclocs_hip_compute_mirror(&srcRoi_i4, &dstDimsWH, id_x, id_y, &locSrc_f16);
+        crop_resize_mirror_roi_and_srclocs_hip_compute_mirror(&srcRoi_i4, &dstDimsWH, id_x, id_y, &locSrc_f16);
     else
-        resize_crop_mirror_roi_and_srclocs_hip_compute(&srcRoi_i4, &dstDimsWH, id_x, id_y, &locSrc_f16);
+        crop_resize_mirror_roi_and_srclocs_hip_compute(&srcRoi_i4, &dstDimsWH, id_x, id_y, &locSrc_f16);
 
     d_float24 dst_f24;
     rpp_hip_interpolate24_bilinear_pkd3(srcPtr + srcIdx, srcStridesNH.y, &locSrc_f16, &srcRoi_i4, &dst_f24, false);
@@ -80,7 +80,7 @@ __global__ void resize_crop_mirror_bilinear_pkd_hip_tensor(T *srcPtr,
 }
 
 template <typename T>
-__global__ void resize_crop_mirror_bilinear_pln_hip_tensor(T *srcPtr,
+__global__ void crop_resize_mirror_bilinear_pln_hip_tensor(T *srcPtr,
                                                        uint3 srcStridesNCH,
                                                        T *dstPtr,
                                                        uint3 dstStridesNCH,
@@ -108,9 +108,9 @@ __global__ void resize_crop_mirror_bilinear_pln_hip_tensor(T *srcPtr,
 
     d_float16 locSrc_f16;
     if(mirrorTensor[id_z] == 1)
-        resize_crop_mirror_roi_and_srclocs_hip_compute_mirror(&srcRoi_i4, &dstDimsWH, id_x, id_y, &locSrc_f16);
+        crop_resize_mirror_roi_and_srclocs_hip_compute_mirror(&srcRoi_i4, &dstDimsWH, id_x, id_y, &locSrc_f16);
     else
-        resize_crop_mirror_roi_and_srclocs_hip_compute(&srcRoi_i4, &dstDimsWH, id_x, id_y, &locSrc_f16);
+        crop_resize_mirror_roi_and_srclocs_hip_compute(&srcRoi_i4, &dstDimsWH, id_x, id_y, &locSrc_f16);
 
     d_float8 dst_f8;
     rpp_hip_interpolate8_bilinear_pln1(srcPtr + srcIdx, srcStridesNCH.z, &locSrc_f16, &srcRoi_i4, &dst_f8, false);
@@ -133,7 +133,7 @@ __global__ void resize_crop_mirror_bilinear_pln_hip_tensor(T *srcPtr,
 }
 
 template <typename T>
-__global__ void resize_crop_mirror_bilinear_pkd3_pln3_hip_tensor(T *srcPtr,
+__global__ void crop_resize_mirror_bilinear_pkd3_pln3_hip_tensor(T *srcPtr,
                                                              uint2 srcStridesNH,
                                                              T *dstPtr,
                                                              uint3 dstStridesNCH,
@@ -159,9 +159,9 @@ __global__ void resize_crop_mirror_bilinear_pkd3_pln3_hip_tensor(T *srcPtr,
     int4 srcRoi_i4 = *(int4 *)&roiTensorPtrSrc[id_z];
     d_float16 locSrc_f16;
     if(mirrorTensor[id_z] == 1)
-        resize_crop_mirror_roi_and_srclocs_hip_compute_mirror(&srcRoi_i4, &dstDimsWH, id_x, id_y, &locSrc_f16);
+        crop_resize_mirror_roi_and_srclocs_hip_compute_mirror(&srcRoi_i4, &dstDimsWH, id_x, id_y, &locSrc_f16);
     else
-        resize_crop_mirror_roi_and_srclocs_hip_compute(&srcRoi_i4, &dstDimsWH, id_x, id_y, &locSrc_f16);
+        crop_resize_mirror_roi_and_srclocs_hip_compute(&srcRoi_i4, &dstDimsWH, id_x, id_y, &locSrc_f16);
 
     d_float24 dst_f24;
     rpp_hip_interpolate24_bilinear_pkd3(srcPtr + srcIdx, srcStridesNH.y, &locSrc_f16, &srcRoi_i4, &dst_f24, false);
@@ -169,7 +169,7 @@ __global__ void resize_crop_mirror_bilinear_pkd3_pln3_hip_tensor(T *srcPtr,
 }
 
 template <typename T>
-__global__ void resize_crop_mirror_bilinear_pln3_pkd3_hip_tensor(T *srcPtr,
+__global__ void crop_resize_mirror_bilinear_pln3_pkd3_hip_tensor(T *srcPtr,
                                                              uint3 srcStridesNCH,
                                                              T *dstPtr,
                                                              uint2 dstStridesNH,
@@ -195,9 +195,9 @@ __global__ void resize_crop_mirror_bilinear_pln3_pkd3_hip_tensor(T *srcPtr,
     int4 srcRoi_i4 = *(int4 *)&roiTensorPtrSrc[id_z];
     d_float16 locSrc_f16;
     if(mirrorTensor[id_z] == 1)
-        resize_crop_mirror_roi_and_srclocs_hip_compute_mirror(&srcRoi_i4, &dstDimsWH, id_x, id_y, &locSrc_f16);
+        crop_resize_mirror_roi_and_srclocs_hip_compute_mirror(&srcRoi_i4, &dstDimsWH, id_x, id_y, &locSrc_f16);
     else
-        resize_crop_mirror_roi_and_srclocs_hip_compute(&srcRoi_i4, &dstDimsWH, id_x, id_y, &locSrc_f16);
+        crop_resize_mirror_roi_and_srclocs_hip_compute(&srcRoi_i4, &dstDimsWH, id_x, id_y, &locSrc_f16);
 
     d_float24 dst_f24;
     rpp_hip_interpolate24_bilinear_pln3(srcPtr + srcIdx, &srcStridesNCH, &locSrc_f16, &srcRoi_i4, &dst_f24, false);
@@ -207,7 +207,7 @@ __global__ void resize_crop_mirror_bilinear_pln3_pkd3_hip_tensor(T *srcPtr,
 // -------------------- Set 3 - Kernel Executors --------------------
 
 template <typename T>
-RppStatus hip_exec_resize_crop_mirror_tensor(T *srcPtr,
+RppStatus hip_exec_crop_resize_mirror_tensor(T *srcPtr,
                                              RpptDescPtr srcDescPtr,
                                              T *dstPtr,
                                              RpptDescPtr dstDescPtr,
@@ -228,7 +228,7 @@ RppStatus hip_exec_resize_crop_mirror_tensor(T *srcPtr,
 
         if ((srcDescPtr->layout == RpptLayout::NHWC) && (dstDescPtr->layout == RpptLayout::NHWC))
         {
-            hipLaunchKernelGGL(resize_crop_mirror_bilinear_pkd_hip_tensor,
+            hipLaunchKernelGGL(crop_resize_mirror_bilinear_pkd_hip_tensor,
                             dim3(ceil((float)globalThreads_x/LOCAL_THREADS_X), ceil((float)globalThreads_y/LOCAL_THREADS_Y), ceil((float)globalThreads_z/LOCAL_THREADS_Z)),
                             dim3(LOCAL_THREADS_X, LOCAL_THREADS_Y, LOCAL_THREADS_Z),
                             0,
@@ -243,7 +243,7 @@ RppStatus hip_exec_resize_crop_mirror_tensor(T *srcPtr,
         }
         else if ((srcDescPtr->layout == RpptLayout::NCHW) && (dstDescPtr->layout == RpptLayout::NCHW))
         {
-            hipLaunchKernelGGL(resize_crop_mirror_bilinear_pln_hip_tensor,
+            hipLaunchKernelGGL(crop_resize_mirror_bilinear_pln_hip_tensor,
                             dim3(ceil((float)globalThreads_x/LOCAL_THREADS_X), ceil((float)globalThreads_y/LOCAL_THREADS_Y), ceil((float)globalThreads_z/LOCAL_THREADS_Z)),
                             dim3(LOCAL_THREADS_X, LOCAL_THREADS_Y, LOCAL_THREADS_Z),
                             0,
@@ -261,7 +261,7 @@ RppStatus hip_exec_resize_crop_mirror_tensor(T *srcPtr,
         {
             if ((srcDescPtr->layout == RpptLayout::NHWC) && (dstDescPtr->layout == RpptLayout::NCHW))
             {
-                hipLaunchKernelGGL(resize_crop_mirror_bilinear_pkd3_pln3_hip_tensor,
+                hipLaunchKernelGGL(crop_resize_mirror_bilinear_pkd3_pln3_hip_tensor,
                                 dim3(ceil((float)globalThreads_x/LOCAL_THREADS_X), ceil((float)globalThreads_y/LOCAL_THREADS_Y), ceil((float)globalThreads_z/LOCAL_THREADS_Z)),
                                 dim3(LOCAL_THREADS_X, LOCAL_THREADS_Y, LOCAL_THREADS_Z),
                                 0,
@@ -277,7 +277,7 @@ RppStatus hip_exec_resize_crop_mirror_tensor(T *srcPtr,
             else if ((srcDescPtr->layout == RpptLayout::NCHW) && (dstDescPtr->layout == RpptLayout::NHWC))
             {
                 globalThreads_x = (dstDescPtr->w + 7) >> 3;
-                hipLaunchKernelGGL(resize_crop_mirror_bilinear_pln3_pkd3_hip_tensor,
+                hipLaunchKernelGGL(crop_resize_mirror_bilinear_pln3_pkd3_hip_tensor,
                                 dim3(ceil((float)globalThreads_x/LOCAL_THREADS_X), ceil((float)globalThreads_y/LOCAL_THREADS_Y), ceil((float)globalThreads_z/LOCAL_THREADS_Z)),
                                 dim3(LOCAL_THREADS_X, LOCAL_THREADS_Y, LOCAL_THREADS_Z),
                                 0,

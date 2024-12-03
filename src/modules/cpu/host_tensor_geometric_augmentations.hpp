@@ -31,7 +31,7 @@ SOFTWARE.
 #include "kernel/remap.hpp"
 #include "kernel/resize.hpp"
 #include "kernel/resize_mirror_normalize.hpp"
-#include "kernel/resize_crop_mirror.hpp"
+#include "kernel/crop_resize_mirror.hpp"
 #include "kernel/warp_affine.hpp"
 #include "kernel/phase.hpp"
 #include "kernel/slice.hpp"

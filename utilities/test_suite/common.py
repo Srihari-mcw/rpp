@@ -59,7 +59,7 @@ imageAugmentationMap = {
     36: ["color_twist", "HOST", "HIP"],
     37: ["crop", "HOST", "HIP"],
     38: ["crop_mirror_normalize", "HOST", "HIP"],
-    39: ["resize_crop_mirror", "HOST", "HIP"],
+    39: ["crop_resize_mirror", "HOST", "HIP"],
     45: ["color_temperature", "HOST", "HIP"],
     46: ["vignette", "HOST", "HIP"],
     49: ["box_filter", "HIP", "HOST"],
