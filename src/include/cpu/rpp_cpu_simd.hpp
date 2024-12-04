@@ -2914,6 +2914,11 @@ inline void rpp_generic_nn_load_u8pln1(Rpp8u *srcPtrChannel, Rpp32s *srcLoc, Rpp
     p = _mm_unpacklo_epi8(px[0], px[1]);    // unpack to obtain [R01|R11|R21|R31|00|00|00|00|00|00|00|00|00|00|00|00]
 }
 
+inline void rpp_generic_nn_gather_load_u8pln1_avx(Rpp8u *srcPtrChannel, __m256i pSrcLoc, __m256i pInvalidLoad, __m256i &p)
+{
+    p = _mm256_and_si256(_mm256_mask_i32gather_epi32(avx_p0, reinterpret_cast<Rpp32s *>(srcPtrChannel), pSrcLoc, pInvalidLoad, 1), _mm256_set1_epi32(0xFF));
+}
+
 inline void rpp_generic_nn_load_u8pln1_avx(Rpp8u *srcPtrChannel, Rpp32s *srcLoc, Rpp32s *invalidLoad, __m256i &p)
 {
     Rpp8u buffer[16] = {0};
@@ -2933,6 +2938,24 @@ inline void rpp_generic_nn_load_f32pkd3_to_f32pln3(Rpp32f *srcPtrChannel, Rpp32s
     p[2] = invalidLoad[2] ? xmm_p0 : _mm_loadu_ps(srcPtrChannel + srcLoc[2]);  // LOC2 load [R21|G21|B21|R22] - Need RGB 21
     __m128 pTemp = invalidLoad[3] ? xmm_p0 : _mm_loadu_ps(srcPtrChannel + srcLoc[3]);  // LOC2 load [R31|G31|B31|R32] - Need RGB 31
     _MM_TRANSPOSE4_PS(p[0], p[1], p[2], pTemp); // Transpose to obtain RGB in each vector
+}
+
+inline void rpp_generic_nn_new_load_f32pkd3_to_f32pln3_avx  (Rpp32f *srcPtrChannel, __m256i pSrcLoc, __m256i pInvalidLoad, __m256 *p)
+{
+    p[0] = _mm256_mask_i32gather_ps(avx_p0, srcPtrChannel, pSrcLoc, pInvalidLoad, 4);
+    p[1] = _mm256_mask_i32gather_ps(avx_p0, srcPtrChannel, _mm256_add_epi32(pSrcLoc, avx_px1), pInvalidLoad, 4);
+    p[2] = _mm256_mask_i32gather_ps(avx_p0, srcPtrChannel, _mm256_add_epi32(pSrcLoc, avx_px2), pInvalidLoad, 4);
+}
+
+inline void rpp_generic_nn_new_load_f16pkd3_to_f32pln3_avx (Rpp16f *srcPtrChannel, __m256i pSrcLoc, __m256i pInvalidLoad, __m256 *p)
+{
+    __m256i lowBits = _mm256_set1_epi32(0xFFFF);
+    __m256i v0 = _mm256_and_si256(_mm256_mask_i32gather_epi32(avx_p0, reinterpret_cast<Rpp32s *>(srcPtrChannel), pSrcLoc, pInvalidLoad, 2), lowBits);
+    __m256i v1 = _mm256_and_si256(_mm256_mask_i32gather_epi32(avx_p0, reinterpret_cast<Rpp32s *>(srcPtrChannel), _mm256_add_epi32(pSrcLoc, avx_px1), pInvalidLoad, 2), lowBits);
+    __m256i v2 = _mm256_and_si256(_mm256_mask_i32gather_epi32(avx_p0, reinterpret_cast<Rpp32s *>(srcPtrChannel), _mm256_add_epi32(pSrcLoc, avx_px2), pInvalidLoad, 2), lowBits);
+    p[0] = _mm256_cvtph_ps(_mm_packus_epi32(_mm256_castsi256_si128(v0), _mm256_extracti128_si256(v0, 1)));
+    p[1] = _mm256_cvtph_ps(_mm_packus_epi32(_mm256_castsi256_si128(v1), _mm256_extracti128_si256(v1, 1)));
+    p[2] = _mm256_cvtph_ps(_mm_packus_epi32(_mm256_castsi256_si128(v2), _mm256_extracti128_si256(v2, 1)));
 }
 
 inline void rpp_generic_nn_load_f32pkd3_to_f32pln3_avx(Rpp32f *srcPtrChannel, Rpp32s *srcLoc, Rpp32s *invalidLoad, __m256 *p)
@@ -4118,6 +4141,14 @@ inline void rpp_store12_u8pln3_to_u8pkd3(Rpp8u* dstPtr, __m128i *p)
     px[0] = _mm_unpacklo_epi8(p[0], p[1]);
     px[1] = _mm_unpacklo_epi64(px[0], p[2]);
     _mm_storeu_si128((__m128i *)(dstPtr), _mm_shuffle_epi8(px[1], xmm_store4_pkd_pixels));
+}
+
+inline void rpp_store_new_24_u8pln3_to_u8pkd3_avx(Rpp8u* dstPtr, __m256i *p)
+{
+    __m256i px = _mm256_or_si256(_mm256_slli_epi32(p[2], 16), _mm256_or_si256(_mm256_slli_epi32(p[1], 8), p[0]));
+    const __m128i xmm_shuffle_mask = _mm_setr_epi8(0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 0x80, 0x80, 0x80, 0x80);
+    _mm_storeu_si128((__m128i *)(dstPtr), _mm_shuffle_epi8(_mm256_castsi256_si128(px), xmm_shuffle_mask));
+    _mm_storeu_si128((__m128i *)(dstPtr + 12), _mm_shuffle_epi8(_mm256_extracti128_si256(px, 1), xmm_shuffle_mask));
 }
 
 inline void rpp_store24_u8pln3_to_u8pkd3_avx(Rpp8u* dstPtr, __m256i *p)
