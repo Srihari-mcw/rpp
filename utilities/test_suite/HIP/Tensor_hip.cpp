@@ -145,6 +145,8 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    HIPTag context;
+
     // Determine the number of input channels based on the specified layout type
     int inputChannels = set_input_channels(layoutType);
 
@@ -607,7 +609,7 @@ int main(int argc, char **argv)
 
                     startWallTime = omp_get_wtime();
                     if (inputBitDepth == 0 || inputBitDepth == 1 || inputBitDepth == 2 || inputBitDepth == 5)
-                        rppt_jitter_gpu(d_input, srcDescPtr, d_output, dstDescPtr, kernelSizeTensor, seed, roiTensorPtrSrc, roiTypeSrc, handle);
+                        rppt_jitter(d_input, srcDescPtr, d_output, dstDescPtr, kernelSizeTensor, seed, roiTensorPtrSrc, roiTypeSrc, handle, context);
                     else
                         missingFuncFlag = 1;
 

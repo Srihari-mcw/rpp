@@ -42,6 +42,15 @@ extern "C" {
  * @{
  */
 
+typedef struct {
+    int dummy; // Placeholder member
+} HOSTTag;
+
+typedef struct {
+    int dummy; // Placeholder member
+} HIPTag;
+
+
 /*! \brief Gridmask augmentation on HOST backend for a NCHW/NHWC layout tensor
  * \details The gridmask augmentation runs as per https://arxiv.org/abs/2001.04086 for a batch of RGB(3 channel) / greyscale(1 channel) images with an NHWC/NCHW tensor layout.<br>
  * - srcPtr depth ranges - Rpp8u (0 to 255), Rpp16f (0 to 1), Rpp32f (0 to 1), Rpp8s (-128 to 127).
@@ -441,7 +450,7 @@ RppStatus rppt_ricap_gpu(RppPtr_t srcPtr, RpptDescPtr srcDescPtr, RppPtr_t dstPt
  * \retval RPP_ERROR* Unsuccessful completion.
  */
 // NOTE: Pixel mismatch of 5% is expected between HIP and HOST Tensor variations due to usage of fastexpavx() instead of exp() in HOST Tensor.
-RppStatus rppt_vignette_host(RppPtr_t srcPtr, RpptDescPtr srcDescPtr, RppPtr_t dstPtr, RpptDescPtr dstDescPtr, Rpp32f *vignetteIntensityTensor, RpptROIPtr roiTensorPtrSrc, RpptRoiType roiType, rppHandle_t rppHandle);
+RppStatus rppt_vignette(RppPtr_t srcPtr, RpptDescPtr srcDescPtr, RppPtr_t dstPtr, RpptDescPtr dstDescPtr, Rpp32f *vignetteIntensityTensor, RpptROIPtr roiTensorPtrSrc, RpptRoiType roiType, rppHandle_t rppHandle);
 
 #ifdef GPU_SUPPORT
 /*! \brief Vignette augmentation on HIP backend for a NCHW/NHWC layout tensor
@@ -462,7 +471,7 @@ RppStatus rppt_vignette_host(RppPtr_t srcPtr, RpptDescPtr srcDescPtr, RppPtr_t d
  * \retval RPP_SUCCESS Successful completion.
  * \retval RPP_ERROR* Unsuccessful completion.
  */
-RppStatus rppt_vignette_gpu(RppPtr_t srcPtr, RpptDescPtr srcDescPtr, RppPtr_t dstPtr, RpptDescPtr dstDescPtr, Rpp32f *vignetteIntensityTensor, RpptROIPtr roiTensorPtrSrc, RpptRoiType roiType, rppHandle_t rppHandle);
+RppStatus rppt_vignette(RppPtr_t srcPtr, RpptDescPtr srcDescPtr, RppPtr_t dstPtr, RpptDescPtr dstDescPtr, Rpp32f *vignetteIntensityTensor, RpptROIPtr roiTensorPtrSrc, RpptRoiType roiType, rppHandle_t rppHandle);
 #endif // GPU_SUPPORT
 
 /*! \brief Jitter augmentation on HOST backend for a NCHW/NHWC layout tensor
@@ -483,7 +492,7 @@ RppStatus rppt_vignette_gpu(RppPtr_t srcPtr, RpptDescPtr srcDescPtr, RppPtr_t ds
  * \retval RPP_SUCCESS Successful completion.
  * \retval RPP_ERROR* Unsuccessful completion.
  */
-RppStatus rppt_jitter_host(RppPtr_t srcPtr, RpptDescPtr srcDescPtr, RppPtr_t dstPtr, RpptDescPtr dstDescPtr, Rpp32u *kernelSizeTensor, Rpp32u seed, RpptROIPtr roiTensorPtrSrc, RpptRoiType roiType, rppHandle_t rppHandle);
+RppStatus rppt_jitter(RppPtr_t srcPtr, RpptDescPtr srcDescPtr, RppPtr_t dstPtr, RpptDescPtr dstDescPtr, Rpp32u *kernelSizeTensor, Rpp32u seed, RpptROIPtr roiTensorPtrSrc, RpptRoiType roiType, rppHandle_t rppHandle, HOSTTag context);
 
 #ifdef GPU_SUPPORT
 /*! \brief Jitter augmentation on HIP backend for a NCHW/NHWC layout tensor
@@ -504,7 +513,7 @@ RppStatus rppt_jitter_host(RppPtr_t srcPtr, RpptDescPtr srcDescPtr, RppPtr_t dst
  * \retval RPP_SUCCESS Successful completion.
  * \retval RPP_ERROR* Unsuccessful completion.
  */
-RppStatus rppt_jitter_gpu(RppPtr_t srcPtr, RpptDescPtr srcDescPtr, RppPtr_t dstPtr, RpptDescPtr dstDescPtr, Rpp32u *kernelSizeTensor, Rpp32u seed, RpptROIPtr roiTensorPtrSrc, RpptRoiType roiType, rppHandle_t rppHandle);
+RppStatus rppt_jitter(RppPtr_t srcPtr, RpptDescPtr srcDescPtr, RppPtr_t dstPtr, RpptDescPtr dstDescPtr, Rpp32u *kernelSizeTensor, Rpp32u seed, RpptROIPtr roiTensorPtrSrc, RpptRoiType roiType, rppHandle_t rppHandle, HIPTag context);
 #endif // GPU_SUPPORT
 
 /*! \brief  Gaussian noise augmentation on HOST backend

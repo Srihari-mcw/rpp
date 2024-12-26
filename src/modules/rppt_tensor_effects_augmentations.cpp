@@ -26,7 +26,7 @@ SOFTWARE.
 #include "rppdefs.h"
 #include "rppi_validate.hpp"
 #include "rppt_api_helpers.h"
-#include "rppt_tensor_effects_augmentations.h"
+#include "rppt_tensor_effects_augmentations.hpp"
 #include "cpu/host_tensor_effects_augmentations.hpp"
 
 #ifdef HIP_COMPILE
@@ -934,7 +934,7 @@ RppStatus rppt_glitch_host(RppPtr_t srcPtr,
 
 /******************** jitter ********************/
 
-RppStatus rppt_jitter_host(RppPtr_t srcPtr,
+RppStatus rppt_jitter(RppPtr_t srcPtr,
                            RpptDescPtr srcDescPtr,
                            RppPtr_t dstPtr,
                            RpptDescPtr dstDescPtr,
@@ -942,7 +942,8 @@ RppStatus rppt_jitter_host(RppPtr_t srcPtr,
                            Rpp32u seed,
                            RpptROIPtr roiTensorPtrSrc,
                            RpptRoiType roiType,
-                           rppHandle_t rppHandle)
+                           rppHandle_t rppHandle,
+                           HOSTTag context)
 {
     RppLayoutParams layoutParams = get_layout_params(srcDescPtr->layout, srcDescPtr->c);
     RpptXorwowStateBoxMuller xorwowInitialState[SIMD_FLOAT_VECTOR_LENGTH];
@@ -2174,7 +2175,7 @@ RppStatus rppt_glitch_gpu(RppPtr_t srcPtr,
 
 /******************** jitter ********************/
 
-RppStatus rppt_jitter_gpu(RppPtr_t srcPtr,
+RppStatus rppt_jitter(RppPtr_t srcPtr,
                           RpptDescPtr srcDescPtr,
                           RppPtr_t dstPtr,
                           RpptDescPtr dstDescPtr,
@@ -2182,7 +2183,8 @@ RppStatus rppt_jitter_gpu(RppPtr_t srcPtr,
                           Rpp32u seed,
                           RpptROIPtr roiTensorPtrSrc,
                           RpptRoiType roiType,
-                          rppHandle_t rppHandle)
+                          rppHandle_t rppHandle,
+                          HIPTag context)
 {
 #ifdef HIP_COMPILE
 
