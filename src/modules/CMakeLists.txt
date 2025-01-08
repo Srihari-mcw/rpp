@@ -26,6 +26,7 @@ project(modules)
 
 if( "${BACKEND}" STREQUAL "HIP")
     file(GLOB RPP_KERNELS hip/kernel/*.cpp)
+    file(GLOB RPP_KERNELS hip/batch_pd/*.cpp)
 elseif( "${BACKEND}" STREQUAL "OCL")
     file(GLOB RPP_KERNELS cl/kernel/*.cl)
 endif()
@@ -90,11 +91,11 @@ if( "${BACKEND}" STREQUAL "HIP")
     # Add HIP kernels
     file(GLOB MOD_HIP_CPP "hip/*.cpp" )
     file(GLOB MOD_HIP_CPP_KERNELS "hip/kernel/*.cpp" )
-    list(APPEND Rpp_Source ${CPPFILES} ${MOD_HIP_CPP} ${MOD_HIP_CPP_KERNELS})
+    file(GLOB MOD_HIP_CPP_BATCHPD_KERNELS "hip/batch_pd/*.cpp" )
+    list(APPEND Rpp_Source ${CPPFILES} ${MOD_HIP_CPP} ${MOD_HIP_CPP_KERNELS} ${MOD_HIP_CPP_BATCHPD_KERNELS})
     message("-- ${Green}HIP kernels added${ColourReset}")
 
-    # Set HIP compiler and flags
-    set(CMAKE_CXX_COMPILER ${COMPILER_FOR_HIP})
+    # Set compiler flags
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${HIP_HIPCC_FLAGS}")
     set_source_files_properties(rppt_tensor_audio_augmentations.cpp PROPERTIES COMPILE_FLAGS -mno-fma)
     set_source_files_properties(rppt_tensor_statistical_operations.cpp PROPERTIES COMPILE_FLAGS -mno-fma) # no-fma flag added to get the exact output match with golden outputs
