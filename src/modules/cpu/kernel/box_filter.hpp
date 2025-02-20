@@ -512,7 +512,7 @@ RppStatus box_filter_char_host_tensor(T *srcPtr,
                     Rpp32s rowKernelLoopLimit = kernelSize;
                     get_kernel_loop_limit(i, rowKernelLoopLimit, padLength, unpaddedHeight);
                     Rpp32s verticalDirection = i < padLength ? 0 : 1;
-                    process_left_border_columns_pkd_pln(srcPtrTemp, srcPtrRow, dstPtrTempChannels, kernelSize, padLength, unpaddedWidth, rowKernelLoopLimit, kernelSizeInverseSquare);
+                    process_left_border_columns_pkd_pln(srcPtrTemp, srcPtrRow, dstPtrTempChannels, kernelSize, padLength, unpaddedWidth, rowKernelLoopLimit, kernelSizeInverseSquare, verticalDirection);
 /*#if __AVX2__
                     // process remaining columns in each row
                     for (; vectorLoopCount < alignedLength; vectorLoopCount += 24)
