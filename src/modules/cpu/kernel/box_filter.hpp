@@ -663,6 +663,314 @@ RppStatus box_filter_char_host_tensor(T *srcPtr,
                 }
             }
         }
+        else if (kernelSize == 5)
+        {
+            T *srcPtrRow[5], *dstPtrRow;
+            for (int i = 0; i < 5; i++)
+                srcPtrRow[i] = srcPtrChannel + i * srcDescPtr->strides.hStride;
+            dstPtrRow = dstPtrChannel;
+
+            // box filter without fused output-layout toggle (NCHW -> NCHW)
+            if ((srcDescPtr->layout == RpptLayout::NCHW) && (dstDescPtr->layout == RpptLayout::NCHW))
+            {
+                /* exclude (2 * padLength) number of columns from alignedLength calculation
+                   since padLength number of columns from the beginning and end of each row will be computed using raw c code */
+                Rpp32u alignedLength = ((bufferLength - (2 * padLength)) / 24) * 24;
+                for (int c = 0; c < srcDescPtr->c; c++)
+                {
+                    srcPtrRow[0] = srcPtrChannel;
+                    srcPtrRow[1] = srcPtrRow[0] + srcDescPtr->strides.hStride;
+                    srcPtrRow[2] = srcPtrRow[1] + srcDescPtr->strides.hStride;
+                    srcPtrRow[3] = srcPtrRow[2] + srcDescPtr->strides.hStride;
+                    srcPtrRow[4] = srcPtrRow[3] + srcDescPtr->strides.hStride;
+                    dstPtrRow = dstPtrChannel;
+                    for (int i = 0; i < roi.xywhROI.roiHeight; i++)
+                    {
+                        int vectorLoopCount = 0;
+                        bool padLengthRows = (i < padLength) ? 1 : 0;
+                        T *srcPtrTemp[5] = {srcPtrRow[0], srcPtrRow[1], srcPtrRow[2], srcPtrRow[3], srcPtrRow[4]};
+                        T *dstPtrTemp = dstPtrRow;
+
+                        // get the number of rows needs to be loaded for the corresponding row
+                        Rpp32s rowKernelLoopLimit = kernelSize;
+                        get_kernel_loop_limit(i, rowKernelLoopLimit, padLength, unpaddedHeight);
+                        Rpp32s verticalDirection = i < padLength ? 0 : 1;
+                        process_left_border_columns_pln_pln(srcPtrTemp, dstPtrTemp, kernelSize, padLength, unpaddedWidth, rowKernelLoopLimit, kernelSizeInverseSquare, verticalDirection);
+                        dstPtrTemp += padLength;
+/*#if __AVX2__
+                        // process alignedLength number of columns in each row
+                        for (; vectorLoopCount < alignedLength; vectorLoopCount += 24)
+                        {
+                            __m256i pxRow[5], pxRowHalf[2], pxResult;
+                            rpp_load_box_filter_char_5x5_host(pxRow, srcPtrTemp, rowKernelLoopLimit);
+
+                            // pack lower and higher half of each of 5 loaded row values from 8 bit to 16 bit and add
+                            unpacklo_and_add_5x5_host(pxRow, &pxRowHalf[0]);
+                            unpackhi_and_add_5x5_host(pxRow, &pxRowHalf[1]);
+
+                            __m128i pxTemp[4], pxDst[2];
+                            extract_4sse_registers(pxRowHalf, pxTemp);
+                            blend_shuffle_add_5x5_host<1, 3, 7, 15>(&pxTemp[0], pxMaskPln, blendRegisterOrder);
+                            blend_shuffle_add_5x5_host<1, 3, 7, 15>(&pxTemp[1], pxMaskPln, blendRegisterOrder);
+                            blend_shuffle_add_5x5_host<1, 3, 7, 15>(&pxTemp[2], pxMaskPln, blendRegisterOrder);
+
+                            pxTemp[0] = _mm_mulhi_epi16(pxTemp[0], pxConvolutionFactor);
+                            pxTemp[1] = _mm_mulhi_epi16(pxTemp[1], pxConvolutionFactor);
+                            pxTemp[2] = _mm_mulhi_epi16(pxTemp[2], pxConvolutionFactor);
+                            pxDst[0] = _mm_packus_epi16(pxTemp[0], pxTemp[1]);
+                            pxDst[1] = _mm_packus_epi16(pxTemp[2], xmm_px0);
+                            pxResult = _mm256_setr_m128i(pxDst[0], pxDst[1]);
+                            if constexpr (std::is_same<T, Rpp8s>::value)
+                                pxResult = _mm256_sub_epi8(pxResult, avx_pxConvertI8);
+
+                            _mm256_storeu_si256((__m256i *)dstPtrTemp, pxResult);
+                            increment_row_ptrs(srcPtrTemp, kernelSize, 24);
+                            dstPtrTemp += 24;
+                        }
+#endif*/
+                        vectorLoopCount += padLength;
+                        for (; vectorLoopCount < bufferLength; vectorLoopCount++)
+                        {
+                            box_filter_generic_tensor(srcPtrTemp, dstPtrTemp, vectorLoopCount, kernelSize, padLength, unpaddedWidth, rowKernelLoopLimit, kernelSizeInverseSquare, 1, verticalDirection);
+                            increment_row_ptrs(srcPtrTemp, kernelSize, 1);
+                            dstPtrTemp++;
+                        }
+                        // for the first padLength rows, we need not increment the src row pointers to next rows
+                        increment_row_ptrs(srcPtrRow, kernelSize, (!padLengthRows) ? srcDescPtr->strides.hStride : 0);
+                        dstPtrRow += dstDescPtr->strides.hStride;
+                    }
+                    srcPtrChannel += srcDescPtr->strides.cStride;
+                    dstPtrChannel += dstDescPtr->strides.cStride;
+                }
+            }
+            else if ((srcDescPtr->layout == RpptLayout::NHWC) && (dstDescPtr->layout == RpptLayout::NHWC))
+            {
+                /* exclude ((2 * padLength) * 3) number of columns from alignedLength calculation
+                   since (padLength * 3) number of columns from the beginning and end of each row will be computed using raw c code */
+                Rpp32u alignedLength = ((bufferLength - (2 * padLength) * 3) / 18) * 18;
+                for(int i = 0; i < roi.xywhROI.roiHeight; i++)
+                {
+                    int vectorLoopCount = 0;
+                    bool padLengthRows = (i < padLength) ? 1: 0;
+                    T *srcPtrTemp[5] = {srcPtrRow[0], srcPtrRow[1], srcPtrRow[2], srcPtrRow[3], srcPtrRow[4]};
+                    T *dstPtrTemp = dstPtrRow;
+
+                    Rpp32s rowKernelLoopLimit = kernelSize;
+                    get_kernel_loop_limit(i, rowKernelLoopLimit, padLength, unpaddedHeight);
+                    Rpp32s verticalDirection = i < padLength ? 0 : 1;
+                    process_left_border_columns_pkd_pkd(srcPtrTemp, srcPtrRow, dstPtrTemp, kernelSize, padLength, unpaddedWidth, rowKernelLoopLimit, kernelSizeInverseSquare, verticalDirection);
+                    dstPtrTemp += padLength * 3;
+/*#if __AVX2__
+                    // process remaining columns in each row
+                    for (; vectorLoopCount < alignedLength; vectorLoopCount += 18)
+                    {
+                        __m256i pxRow[5], pxRowHalf[2], pxResult;
+                        rpp_load_box_filter_char_5x5_host(pxRow, srcPtrTemp, rowKernelLoopLimit);
+
+                        // pack lower and higher half of each of 5 loaded row values from 8 bit to 16 bit and add
+                        unpacklo_and_add_5x5_host(pxRow, &pxRowHalf[0]);
+                        unpackhi_and_add_5x5_host(pxRow, &pxRowHalf[1]);
+
+                        __m128i pxTemp[5], pxDst[2];
+                        extract_4sse_registers(pxRowHalf, pxTemp);
+                        pxTemp[4] = xmm_px0;
+                        blend_shuffle_add_5x5_host<7, 63, 1, 15>(&pxTemp[0], pxMaskPkd, blendRegisterOrder);
+                        blend_shuffle_add_5x5_host<7, 63, 1, 15>(&pxTemp[1], pxMaskPkd, blendRegisterOrder);
+                        blend_shuffle_add_5x5_host<7, 63, 1, 15>(&pxTemp[2], pxMaskPkd, blendRegisterOrder);
+
+                        pxTemp[0] = _mm_mulhi_epi16(pxTemp[0], pxConvolutionFactor);
+                        pxTemp[1] = _mm_mulhi_epi16(pxTemp[1], pxConvolutionFactor);
+                        pxTemp[2] = _mm_mulhi_epi16(pxTemp[2], pxConvolutionFactor);
+                        pxDst[0] = _mm_packus_epi16(pxTemp[0], pxTemp[1]);
+                        pxDst[1] = _mm_packus_epi16(pxTemp[2], xmm_px0);
+                        pxResult = _mm256_setr_m128i(pxDst[0], pxDst[1]);
+                        if constexpr (std::is_same<T, Rpp8s>::value)
+                            pxResult = _mm256_sub_epi8(pxResult, avx_pxConvertI8);
+
+                        _mm256_storeu_si256((__m256i *)dstPtrTemp, pxResult);
+                        increment_row_ptrs(srcPtrTemp, kernelSize, 18);
+                        dstPtrTemp += 18;
+                    }
+#endif*/
+                    vectorLoopCount += padLength * 3;
+                    for (; vectorLoopCount < bufferLength; vectorLoopCount++)
+                    {
+                        box_filter_generic_tensor(srcPtrTemp, dstPtrTemp, vectorLoopCount / 3, kernelSize, padLength, unpaddedWidth, rowKernelLoopLimit, kernelSizeInverseSquare, 1, verticalDirection, 3);
+                        increment_row_ptrs(srcPtrTemp, kernelSize, 1);
+                        dstPtrTemp++;
+                    }
+                    // for the first padLength rows, we need not increment the src row pointers to next rows
+                    increment_row_ptrs(srcPtrRow, kernelSize, (!padLengthRows) ? srcDescPtr->strides.hStride : 0);
+                    dstPtrRow += dstDescPtr->strides.hStride;
+                }
+            }
+            else if ((srcDescPtr->c == 3) && (srcDescPtr->layout == RpptLayout::NHWC) && (dstDescPtr->layout == RpptLayout::NCHW))
+            {
+                /* exclude ((2 * padLength) * 3) number of columns from alignedLength calculation
+                   since (padLength * 3) number of columns from the beginning and end of each row will be computed using raw c code */
+                Rpp32u alignedLength = ((bufferLength - (2 * padLength) * 3) / 18) * 18;
+                T *dstPtrChannels[3];
+                for (int i = 0; i < 3; i++)
+                    dstPtrChannels[i] = dstPtrChannel + i * dstDescPtr->strides.cStride;
+
+                for(int i = 0; i < roi.xywhROI.roiHeight; i++)
+                {
+                    int vectorLoopCount = 0;
+                    bool padLengthRows = (i < padLength) ? 1: 0;
+                    T *srcPtrTemp[5] = {srcPtrRow[0], srcPtrRow[1], srcPtrRow[2], srcPtrRow[3], srcPtrRow[4]};
+                    T *dstPtrTempChannels[3] = {dstPtrChannels[0], dstPtrChannels[1], dstPtrChannels[2]};
+
+                    Rpp32s rowKernelLoopLimit = kernelSize;
+                    get_kernel_loop_limit(i, rowKernelLoopLimit, padLength, unpaddedHeight);
+                    Rpp32s verticalDirection = i < padLength ? 0 : 1;
+                    process_left_border_columns_pkd_pln(srcPtrTemp, srcPtrRow, dstPtrTempChannels, kernelSize, padLength, unpaddedWidth, rowKernelLoopLimit, kernelSizeInverseSquare, verticalDirection);
+/*#if __AVX2__
+                    // process remaining columns in each row
+                    for (; vectorLoopCount < alignedLength; vectorLoopCount += 18)
+                    {
+                        __m256i pxRow[5], pxRowHalf[2];
+                        rpp_load_box_filter_char_5x5_host(pxRow, srcPtrTemp, rowKernelLoopLimit);
+
+                        // pack lower and higher half of each of 5 loaded row values from 8 bit to 16 bit and add
+                        unpacklo_and_add_5x5_host(pxRow, &pxRowHalf[0]);
+                        unpackhi_and_add_5x5_host(pxRow, &pxRowHalf[1]);
+
+                        __m128i pxTemp[5], pxDst[2];
+                        extract_4sse_registers(pxRowHalf, pxTemp);
+                        pxTemp[4] = xmm_px0;
+                        blend_shuffle_add_5x5_host<7, 63, 1, 15>(&pxTemp[0], pxMaskPkd, blendRegisterOrder);
+                        blend_shuffle_add_5x5_host<7, 63, 1, 15>(&pxTemp[1], pxMaskPkd, blendRegisterOrder);
+                        blend_shuffle_add_5x5_host<7, 63, 1, 15>(&pxTemp[2], pxMaskPkd, blendRegisterOrder);
+
+                        pxTemp[0] = _mm_mulhi_epi16(pxTemp[0], pxConvolutionFactor);
+                        pxTemp[1] = _mm_mulhi_epi16(pxTemp[1], pxConvolutionFactor);
+                        pxTemp[2] = _mm_mulhi_epi16(pxTemp[2], pxConvolutionFactor);
+                        pxDst[0] = _mm_packus_epi16(pxTemp[0], pxTemp[1]);
+                        pxDst[1] = _mm_packus_epi16(pxTemp[2], xmm_px0);
+                        if constexpr (std::is_same<T, Rpp8s>::value)
+                        {
+                            pxDst[0] = _mm_sub_epi8(pxDst[0], xmm_pxConvertI8);
+                            pxDst[1] = _mm_sub_epi8(pxDst[1], xmm_pxConvertI8);
+                        }
+
+                        // convert from PKD3 to PLN3 and store channelwise
+                        __m128i pxDstChn[3];
+                        rpp_convert24_pkd3_to_pln3(pxDst[0], pxDst[1], pxDstChn);
+                        rpp_storeu_si64((__m128i *)(dstPtrTempChannels[0]), pxDstChn[0]);
+                        rpp_storeu_si64((__m128i *)(dstPtrTempChannels[1]), pxDstChn[1]);
+                        rpp_storeu_si64((__m128i *)(dstPtrTempChannels[2]), pxDstChn[2]);
+                        increment_row_ptrs(srcPtrTemp, kernelSize, 18);
+                        increment_row_ptrs(dstPtrTempChannels, kernelSize, 6);
+                    }
+#endif*/
+                    vectorLoopCount += padLength * 3;
+                    for (int c = 0; vectorLoopCount < bufferLength; vectorLoopCount++, c++)
+                    {
+                        int channel = c % 3;
+                        box_filter_generic_tensor(srcPtrTemp, dstPtrTempChannels[channel], vectorLoopCount / 3, kernelSize, padLength, unpaddedWidth, rowKernelLoopLimit, kernelSizeInverseSquare, 1, verticalDirection, 3);
+                        increment_row_ptrs(srcPtrTemp, kernelSize, 1);
+                        dstPtrTempChannels[channel]++;
+                    }
+                    // for the first padLength rows, we need not increment the src row pointers to next rows
+                    increment_row_ptrs(srcPtrRow, kernelSize, (!padLengthRows) ? srcDescPtr->strides.hStride : 0);
+                    increment_row_ptrs(dstPtrChannels, kernelSize, dstDescPtr->strides.hStride);
+                }
+            }
+            else if ((srcDescPtr->layout == RpptLayout::NCHW) && (dstDescPtr->layout == RpptLayout::NHWC))
+            {
+                /* exclude (2 * padLength) number of columns from alignedLength calculation
+                   since padLength * 3 number of columns from the beginning and end of each row will be computed using raw c code */
+                Rpp32u alignedLength = ((bufferLength - (2 * padLength)) / 24) * 24;
+                for(int i = 0; i < roi.xywhROI.roiHeight; i++)
+                {
+                    int vectorLoopCount = 0;
+                    bool padLengthRows = (i < padLength) ? 1: 0;
+                    T *srcPtrTemp[3][5];
+                    for (int c = 0; c < 3; c++)
+                    {
+                        Rpp32u channelStride = c * srcDescPtr->strides.cStride;
+                        for (int k = 0; k < 5; k++)
+                            srcPtrTemp[c][k] = srcPtrRow[k] + channelStride;
+                    }
+                    T *dstPtrTemp = dstPtrRow;
+                    // get the number of rows needs to be loaded for the corresponding row
+                    Rpp32s rowKernelLoopLimit = kernelSize;
+                    get_kernel_loop_limit(i, rowKernelLoopLimit, padLength, unpaddedHeight);
+                    Rpp32s verticalDirection = i < padLength ? 0 : 1;
+
+                    // process padLength number of columns in each row
+                    // left border pixels in image which does not have required pixels in 5x5 box, process them separately
+                    for (int k = 0; k < padLength; k++)
+                    {
+                        for (int c = 0; c < 3; c++)
+                        {
+                            box_filter_generic_tensor(srcPtrTemp[c], dstPtrTemp, k, kernelSize, padLength, unpaddedWidth, rowKernelLoopLimit, kernelSizeInverseSquare, 0, verticalDirection);
+                            dstPtrTemp++;
+                        }
+                    }
+/*#if __AVX2__
+                    // process alignedLength number of columns in each row
+                    for (; vectorLoopCount < alignedLength; vectorLoopCount += 24)
+                    {
+                        __m256i pxResultPln[3];
+                        for (int c = 0; c < 3; c++)
+                        {
+                            __m256i pxRow[5], pxRowHalf[2], pxResult;
+                            rpp_load_box_filter_char_5x5_host(pxRow, srcPtrTemp[c], rowKernelLoopLimit);
+
+                            // pack lower and higher half of each of 5 loaded row values from 8 bit to 16 bit and add
+                            unpacklo_and_add_5x5_host(pxRow, &pxRowHalf[0]);
+                            unpackhi_and_add_5x5_host(pxRow, &pxRowHalf[1]);
+
+                            __m128i pxTemp[4], pxDst[2];
+                            extract_4sse_registers(pxRowHalf, pxTemp);
+                            blend_shuffle_add_5x5_host<1, 3, 7, 15>(&pxTemp[0], pxMaskPln, blendRegisterOrder);
+                            blend_shuffle_add_5x5_host<1, 3, 7, 15>(&pxTemp[1], pxMaskPln, blendRegisterOrder);
+                            blend_shuffle_add_5x5_host<1, 3, 7, 15>(&pxTemp[2], pxMaskPln, blendRegisterOrder);
+
+                            pxTemp[0] = _mm_mulhi_epi16(pxTemp[0], pxConvolutionFactor);
+                            pxTemp[1] = _mm_mulhi_epi16(pxTemp[1], pxConvolutionFactor);
+                            pxTemp[2] = _mm_mulhi_epi16(pxTemp[2], pxConvolutionFactor);
+                            pxDst[0] = _mm_packus_epi16(pxTemp[0], pxTemp[1]);
+                            pxDst[1] = _mm_packus_epi16(pxTemp[2], xmm_px0);
+                            pxResultPln[c] = _mm256_setr_m128i(pxDst[0], pxDst[1]);
+                            increment_row_ptrs(srcPtrTemp[c], kernelSize, 24);
+                        }
+                        if constexpr (std::is_same<T, Rpp8s>::value)
+                        {
+                            pxResultPln[0] = _mm256_sub_epi8(pxResultPln[0], avx_pxConvertI8);
+                            pxResultPln[1] = _mm256_sub_epi8(pxResultPln[1], avx_pxConvertI8);
+                            pxResultPln[2] = _mm256_sub_epi8(pxResultPln[2], avx_pxConvertI8);
+                        }
+
+                        __m128i pxResultPkd[6];
+                        // convert result from pln to pkd format and store in output buffer
+                        rpp_convert72_pln3_to_pkd3(pxResultPln, pxResultPkd);
+                        _mm_storeu_si128((__m128i *)dstPtrTemp, pxResultPkd[0]);
+                        _mm_storeu_si128((__m128i *)(dstPtrTemp + 12), pxResultPkd[1]);
+                        _mm_storeu_si128((__m128i *)(dstPtrTemp + 24), pxResultPkd[2]);
+                        _mm_storeu_si128((__m128i *)(dstPtrTemp + 36), pxResultPkd[3]);
+                        _mm_storeu_si128((__m128i *)(dstPtrTemp + 48), pxResultPkd[4]);
+                        _mm_storeu_si128((__m128i *)(dstPtrTemp + 60), pxResultPkd[5]);
+                        dstPtrTemp += 72;
+                    }
+#endif*/
+                    vectorLoopCount += padLength;
+                    for (; vectorLoopCount < bufferLength; vectorLoopCount++)
+                    {
+                        for (int c = 0; c < 3; c++)
+                        {
+                            box_filter_generic_tensor(srcPtrTemp[c], dstPtrTemp, vectorLoopCount, kernelSize, padLength, unpaddedWidth, rowKernelLoopLimit, kernelSizeInverseSquare, 1, verticalDirection);
+                            increment_row_ptrs(srcPtrTemp[c], kernelSize, 1);
+                            dstPtrTemp++;
+                        }
+                    }
+                    // for the first padLength rows, we need not increment the src row pointers to next rows
+                    increment_row_ptrs(srcPtrRow, kernelSize, (!padLengthRows) ? srcDescPtr->strides.hStride : 0);
+                    dstPtrRow += dstDescPtr->strides.hStride;
+                }
+            }
+        }
     }
 
     return RPP_SUCCESS;
