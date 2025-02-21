@@ -95,8 +95,8 @@ inline void box_filter_generic_tensor(T **srcPtrTemp, T *dstPtrTemp, Rpp32s colu
         Rpp32s rowOverflowPixels = (kernelSize - rowKernelLoopLimit);
         Rpp32s columnOverflowPixels = (kernelSize - columnKernelLoopLimit);
 
-        Rpp32u rowClampIndex = (horizontalDirection == 1) ? rowKernelLoopLimit : 0;
-        Rpp32u columnClampIndex = (verticalDirection == 1) ?  columnKernelLoopLimit : 0;
+        Rpp32u rowClampIndex = (horizontalDirection == 1) ? rowKernelLoopLimit - 1 : 0;
+        Rpp32u columnClampIndex = (verticalDirection == 1) ?  columnKernelLoopLimit - 1 : 0;
 
         accum += static_cast<Rpp32f>(srcPtrTemp[rowClampIndex][columnClampIndex] * rowOverflowPixels * columnOverflowPixels);
 
