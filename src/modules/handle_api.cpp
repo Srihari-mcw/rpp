@@ -26,7 +26,7 @@ SOFTWARE.
 #include "rpp/errors.hpp"
 #include "rpp/handle.hpp"
 
-extern "C" rppStatus_t rppCreate(rppHandle_t* handle, size_t nBatchSize, Rpp32u numThreads, const std::vector<void*>& streams, RppBackend backend)
+extern "C" rppStatus_t rppCreateUpdated(rppHandle_t* handle, size_t nBatchSize, Rpp32u numThreads, const std::vector<void*>& streams, RppBackend backend)
 {
     if(backend == RppBackend::RPP_HOST_BACKEND)
         return rpp::try_([&] { rpp::deref(handle) = new rpp::Handle(nBatchSize, numThreads); });

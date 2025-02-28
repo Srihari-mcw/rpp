@@ -240,7 +240,7 @@ Handle::Handle(size_t batchSize, const std::vector<void*>& streams) : impl(new H
     this->impl->ctx = get_ctx();
 
     for (auto stream : streams) {
-        this->impl->streams.push_back(reinterpret_cast<rppAcceleratorQueue_t>(stream));
+        (this->impl->streams).push_back(HandleImpl::reference_stream(reinterpret_cast<rppAcceleratorQueue_t>(stream)));
     }
 
     this->SetAllocator(nullptr, nullptr, nullptr);
