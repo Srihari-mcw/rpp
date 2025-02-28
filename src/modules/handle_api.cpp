@@ -26,6 +26,23 @@ SOFTWARE.
 #include "rpp/errors.hpp"
 #include "rpp/handle.hpp"
 
+extern "C" rppStatus_t rppCreate(rppHandle_t* handle, size_t nBatchSize, Rpp32u numThreads, const std::vector<void*>& streams, RppBackend backend)
+{
+    if(backend == RppBackend::RPP_HOST_BACKEND)
+        return rpp::try_([&] { rpp::deref(handle) = new rpp::Handle(nBatchSize, numThreads); });
+#if GPU_SUPPORT
+    else if(backend == RppBackend::RPP_HIP_BACKEND || backend == RppBackend::RPP_OCL_BACKEND)
+    {
+            return rpp::try_([&] {
+            rpp::deref(handle) = new rpp::Handle(nBatchSize, streams);
+        });
+    }
+#endif // GPU_SUPPORT
+    else
+        return rppStatusNotImplemented;
+
+}
+
 extern "C" rppStatus_t rppCreate(rppHandle_t* handle, size_t nBatchSize, Rpp32u numThreads, void* stream, RppBackend backend)
 {
     if(backend == RppBackend::RPP_HOST_BACKEND)
