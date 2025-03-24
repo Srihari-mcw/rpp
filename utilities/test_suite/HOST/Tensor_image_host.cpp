@@ -353,6 +353,16 @@ int main(int argc, char **argv)
     if(testCase == SLICE)
         set_generic_descriptor_slice(srcDescPtr, descriptorPtr3D, batchSize);
 
+    RppGenericDesc srcDescriptor3D, dstDescriptor3D;
+    RpptGenericDescPtr srcDescriptorPtr3D = &srcDescriptor3D;
+    RpptGenericDescPtr dstDescriptorPtr3D = &dstDescriptor3D;
+
+    Rpp32u* transposeRoiTensor = static_cast<Rpp32u*>(calloc(3 * 2 * batchSize), sizeof(Rpp32u));
+    if(testCase == TRANSPOSE) {
+        set_generic_descriptor_transpose(srcDescPtr, srcDescriptorPtr3D, batchSize);
+        set_generic_descriptor_transpose(dstDescPtr, dstDescriptorPtr3D, batchSize);
+    }
+
     // create cropRoi and patchRoi in case of crop_and_patch
     RpptROI *cropRoi, *patchRoi;
     if(testCase == CROP_AND_PATCH)
@@ -1629,6 +1639,31 @@ int main(int argc, char **argv)
                         missingFuncFlag = 1;
 
                     break;
+                }
+                case TRANSPOSE:
+                {
+                    testCaseName  = "transpose";
+                    Rpp32u numDim = srcDescriptorPtr3D->numDims - 1;
+                    Rpp32u permTensor[numDim];
+                    fill_perm_values(numDim, permTensor, qaMode, 1);
+
+                    init_transpose(srcDescriptorPtr3D, roiTensorPtrSrc, transposeRoiTensor);
+
+                    for(int i = 1; i <= nDim; i++)
+                        dstDescriptorPtrND->dims[i] = transposeRoiTensor[nDim + permTensor[i - 1]];
+                    compute_strides(dstDescriptorPtr3D);
+
+                    startWallTime = omp_get_wtime();
+                    startCpuTime = clock();
+
+                    if(inputBitDepth == 0)
+                    {
+                        rppt_transpose_host(inputF32, srcDescriptorPtrND, outputF32, dstDescriptorPtrND, permTensor, transposeRoiTensor, handle);
+                    }
+                    else
+                        missingFuncFlag = 1;
+                    break;
+
                 }
                 default:
                 {
