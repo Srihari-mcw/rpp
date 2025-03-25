@@ -580,9 +580,10 @@ inline void set_generic_descriptor_transpose(RpptDescPtr srcDescPtr, RpptGeneric
     descriptorPtr3D->dims[0] = batchSize;
     if (srcDescPtr->layout == RpptLayout::NHWC)
     {
-        descriptorPtr3D->dims[1] = srcDescPtr->h;
-        descriptorPtr3D->dims[2] = srcDescPtr->w;
-        descriptorPtr3D->dims[3] = srcDescPtr->c;
+        descriptorPtr3D->dims[1] = 416;//srcDescPtr->h;
+        descriptorPtr3D->dims[2] = 416;//srcDescPtr->w;
+        descriptorPtr3D->dims[3] = 3;//srcDescPtr->c;
+        printf("H W C are : %d %d %d\n", srcDescPtr->h, srcDescPtr->w, srcDescPtr->c);
     }
     else
     {
@@ -1064,6 +1065,68 @@ void compare_outputs_pln3(Rpp8u* output, Rpp8u* refOutput, RpptDescPtr dstDescPt
     }
 }
 
+// fill the permutation values used for transpose
+void fill_perm_values(Rpp32u nDim, Rpp32u *permTensor, bool qaMode, int permOrder)
+{
+    if(qaMode)
+    {
+        switch(nDim)
+        {
+            case 2:
+            {
+                // HW->WH
+                permTensor[0] = 1;
+                permTensor[1] = 0;
+                break;
+            }
+            case 3:
+            {
+                // HWC->WHC
+                if (permOrder == 1)
+                {
+                    permTensor[0] = 1;
+                    permTensor[1] = 0;
+                    permTensor[2] = 2;
+                }
+                // HWC->HCW
+                else if (permOrder == 2)
+                {
+                    permTensor[0] = 0;
+                    permTensor[1] = 2;
+                    permTensor[2] = 1;
+
+                }
+                break;
+            }
+            default:
+            {
+                cout << "Error! QA mode is supported only for 2D / 3D inputs" << endl;
+                exit(0);
+            }
+        }
+    }
+    else
+    {
+        for(int i = 0; i < nDim; i++)
+            permTensor[i] = nDim - 1 - i;
+    }
+}
+
+// Compute strides given Generic Tensor
+void compute_strides(RpptGenericDescPtr descriptorPtr)
+{
+    if (descriptorPtr->numDims > 0)
+    {
+        uint64_t v = 1;
+        for (int i = descriptorPtr->numDims - 1; i > 0; i--)
+        {
+            descriptorPtr->strides[i] = v;
+            v *= descriptorPtr->dims[i];
+        }
+        descriptorPtr->strides[0] = v;
+    }
+}
+
 template <typename T>
 inline void compare_output(T* output, string funcName, RpptDescPtr srcDescPtr, RpptDescPtr dstDescPtr, RpptImagePatch *dstImgSizes, int noOfImages, string interpolationTypeName, string noiseTypeName, int additionalParam, int testCase, string dst, string scriptPath)
 {
@@ -1471,12 +1534,12 @@ void init_transpose(RpptGenericDescPtr descriptorPtr3D, RpptROIPtr roiPtrSrc, Rp
             {
                 int idx1 = i * 3;
                 int idx2 = i * 6;
-                roiTensor[idx2] = roiPtrSrc[i].xywhROI.xy.y;
-                roiTensor[idx2 + 1] = roiPtrSrc[i].xywhROI.xy.x;
+                roiTensor[idx2] = 0;//roiPtrSrc[i].xywhROI.xy.y;
+                roiTensor[idx2 + 1] = 0;//roiPtrSrc[i].xywhROI.xy.x;
                 roiTensor[idx2 + 2] = 0;
-                roiTensor[idx2 + 3] = roiPtrSrc[i].xywhROI.roiHeight;
-                roiTensor[idx2 + 4] = roiPtrSrc[i].xywhROI.roiWidth;
-                roiTensor[idx2 + 5] = descriptorPtr3D->dims[3];
+                roiTensor[idx2 + 3] = 416;//roiPtrSrc[i].xywhROI.roiHeight;
+                roiTensor[idx2 + 4] = 416;//roiPtrSrc[i].xywhROI.roiWidth;
+                roiTensor[idx2 + 5] = 3;//descriptorPtr3D->dims[3];
             }
         }
     }

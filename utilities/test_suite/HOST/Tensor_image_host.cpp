@@ -353,12 +353,14 @@ int main(int argc, char **argv)
     if(testCase == SLICE)
         set_generic_descriptor_slice(srcDescPtr, descriptorPtr3D, batchSize);
 
-    RppGenericDesc srcDescriptor3D, dstDescriptor3D;
+    RpptGenericDesc srcDescriptor3D, dstDescriptor3D;
     RpptGenericDescPtr srcDescriptorPtr3D = &srcDescriptor3D;
     RpptGenericDescPtr dstDescriptorPtr3D = &dstDescriptor3D;
 
-    Rpp32u* transposeRoiTensor = static_cast<Rpp32u*>(calloc(3 * 2 * batchSize), sizeof(Rpp32u));
+    Rpp32u* transposeRoiTensor = NULL;
+    transposeRoiTensor = static_cast<Rpp32u*>(calloc(batchSize * 3 * 2, sizeof(Rpp32u)));//static_cast<Rpp32u*>(calloc(3 * 2 * batchSize), sizeof(Rpp32u));
     if(testCase == TRANSPOSE) {
+        printf("Set Generic Descriptor Tranpose \n");
         set_generic_descriptor_transpose(srcDescPtr, srcDescriptorPtr3D, batchSize);
         set_generic_descriptor_transpose(dstDescPtr, dstDescriptorPtr3D, batchSize);
     }
@@ -1645,20 +1647,28 @@ int main(int argc, char **argv)
                     testCaseName  = "transpose";
                     Rpp32u numDim = srcDescriptorPtr3D->numDims - 1;
                     Rpp32u permTensor[numDim];
-                    fill_perm_values(numDim, permTensor, qaMode, 1);
+                    fill_perm_values(numDim, permTensor, 1, 1);
+
+                    printf("Perm Tensor : ");
+                    for(int i1 = 0; i1 < numDim; i1++)
+                        printf("%d ", permTensor[i1]);
 
                     init_transpose(srcDescriptorPtr3D, roiTensorPtrSrc, transposeRoiTensor);
 
-                    for(int i = 1; i <= nDim; i++)
-                        dstDescriptorPtrND->dims[i] = transposeRoiTensor[nDim + permTensor[i - 1]];
-                    compute_strides(dstDescriptorPtr3D);
+                    /*for(int i = 1; i <= numDim; i++) {
+                        dstDescriptorPtr3D->dims[i] = transposeRoiTensor[numDim + permTensor[i - 1]];
+                        printf("%d ", dstDescriptorPtr3D->dims[i]);
+                    }
+                    compute_strides(dstDescriptorPtr3D);*/
+
+                    //exit(0);
 
                     startWallTime = omp_get_wtime();
                     startCpuTime = clock();
 
                     if(inputBitDepth == 0)
                     {
-                        rppt_transpose_host(inputF32, srcDescriptorPtrND, outputF32, dstDescriptorPtrND, permTensor, transposeRoiTensor, handle);
+                        rppt_transpose_host(input, srcDescriptorPtr3D, output, dstDescriptorPtr3D, permTensor, transposeRoiTensor, handle);
                     }
                     else
                         missingFuncFlag = 1;
