@@ -608,7 +608,7 @@ inline void set_descriptor_dims_and_strides(RpptDescPtr descPtr, int noOfImages,
     descPtr->c = numChannels;
 
     // Optionally set w stride as a multiple of 8 for src/dst
-    descPtr->w = (descPtr->w / 8) * 8 + 8 + additionalStride;
+    descPtr->w = (descPtr->w / 8) * 8;// + 8 + additionalStride;
     // set strides
     if (descPtr->layout == RpptLayout::NHWC)
     {
@@ -958,16 +958,23 @@ inline void write_image_batch_opencv(string outputFolder, Rpp8u *output, RpptDes
 
     Rpp32u elementsInRowMax = dstDescPtr->w * dstDescPtr->c;
     Rpp8u *offsettedOutput = output + dstDescPtr->offsetInBytes;
-    for (int j = 0; (j < dstDescPtr->n) && (imageCnt < maxImageDump) ; j++, imageCnt++)
+    for (int j = 0; (j < 1) && (imageCnt < maxImageDump) ; j++, imageCnt++)
     {
-        Rpp32u height = dstImgSizes[j].height;
+        Rpp32u height = dstImgSizes[j].height * 2;
         Rpp32u width = dstImgSizes[j].width;
         Rpp32u elementsInRow = width * dstDescPtr->c;
         Rpp32u outputSize = height * width * dstDescPtr->c;
         Rpp8u *tempOutput = (Rpp8u *)calloc(outputSize, sizeof(Rpp8u));
         Rpp8u *tempOutputRow = tempOutput;
         Rpp8u *outputRow = offsettedOutput + j * dstDescPtr->strides.nStride;
-        for (int k = 0; k < height; k++)
+        for (int k = 0; k < height/2; k++)
+        {
+            memcpy(tempOutputRow, outputRow, elementsInRow * sizeof(Rpp8u));
+            tempOutputRow += elementsInRow;
+            outputRow += elementsInRowMax;
+        }
+        outputRow = offsettedOutput + dstDescPtr->strides.nStride;
+        for (int k = 0; k < height/2; k++)
         {
             memcpy(tempOutputRow, outputRow, elementsInRow * sizeof(Rpp8u));
             tempOutputRow += elementsInRow;
@@ -986,14 +993,17 @@ inline void write_image_batch_opencv(string outputFolder, Rpp8u *output, RpptDes
         }
 
         fs::path pathObj(outputImagePath);
+        std::vector<int> compression_params;
+        compression_params.push_back(IMWRITE_PNG_COMPRESSION);
+        compression_params.push_back(9);
         if (fs::exists(pathObj))
         {
             std::string outPath = outputImagePath.substr(0, outputImagePath.find_last_of('.')) + "_" + to_string(cnt) + outputImagePath.substr(outputImagePath.find_last_of('.'));
-            imwrite(outPath, matOutputImage);
+            imwrite(outPath, matOutputImage, compression_params);
             cnt++;
         }
         else
-            imwrite(outputImagePath, matOutputImage);
+            imwrite(outputImagePath, matOutputImage, compression_params);
         free(tempOutput);
     }
 }

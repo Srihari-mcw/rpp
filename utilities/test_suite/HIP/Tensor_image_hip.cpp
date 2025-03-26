@@ -350,13 +350,25 @@ int main(int argc, char **argv)
     }
 
     // create generic descriptor and params in case of slice
-    RpptGenericDesc descriptor3D;
+    RpptGenericDesc descriptor3D, srcdescriptor3D, dstdescriptor3D;
     RpptGenericDescPtr descriptorPtr3D = &descriptor3D;
+    RpptGenericDescPtr srcDescriptorPtr3D, dstDescriptorPtr3D;
+    CHECK_RETURN_STATUS(hipHostMalloc(&srcDescriptorPtr3D, sizeof(RpptGenericDesc)));
+    CHECK_RETURN_STATUS(hipHostMalloc(&dstDescriptorPtr3D, sizeof(RpptGenericDesc)));
     Rpp32s *anchorTensor = NULL, *shapeTensor = NULL;
+    Rpp32u *transposeRoiTensor = NULL;
     Rpp32u *roiTensor = NULL;
+    Rpp32u *permTensor = NULL;
+    CHECK_RETURN_STATUS(hipHostMalloc(&permTensor, 3 * sizeof(Rpp32u)));
+    permTensor[0] = 1;//1;
+    permTensor[1] = 0;//0;
+    permTensor[2] = 2;//2;
     if(testCase == SLICE)
         set_generic_descriptor_slice(srcDescPtr, descriptorPtr3D, batchSize);
-
+    if(testCase == TRANSPOSE) {
+        set_generic_descriptor_transpose(srcDescPtr, srcDescriptorPtr3D, batchSize);
+        set_generic_descriptor_transpose(dstDescPtr, dstDescriptorPtr3D, batchSize);
+    }
     // Allocate hip memory for src/dst
     CHECK_RETURN_STATUS(hipMalloc(&d_input, inputBufferSize));
     CHECK_RETURN_STATUS(hipMalloc(&d_output, outputBufferSize));
@@ -1593,6 +1605,26 @@ int main(int argc, char **argv)
 
                     break;
                 }
+                case TRANSPOSE:
+                {
+                    testCaseName  = "transpose";
+                    Rpp32u numDim = srcDescriptorPtr3D->numDims - 1;
+                    if(transposeRoiTensor == NULL)
+                        CHECK_RETURN_STATUS(hipHostMalloc(&transposeRoiTensor, batchSize * 3 * 2 * sizeof(Rpp32u)));
+
+                    init_transpose(srcDescriptorPtr3D, roiTensorPtrSrc, transposeRoiTensor);
+
+                    startWallTime = omp_get_wtime();
+
+                    if(inputBitDepth == 0)
+                    {
+                        rppt_transpose_gpu(d_input, srcDescriptorPtr3D, d_output, dstDescriptorPtr3D, permTensor, transposeRoiTensor, handle);
+                    }
+                    else
+                        missingFuncFlag = 1;
+                    break;
+
+                }
                 default:
                 {
                     missingFuncFlag = 1;
@@ -1777,6 +1809,8 @@ int main(int argc, char **argv)
     CHECK_RETURN_STATUS(hipHostFree(roiTensorPtrSrc));
     CHECK_RETURN_STATUS(hipHostFree(roiTensorPtrDst));
     CHECK_RETURN_STATUS(hipHostFree(dstImgSizes));
+    if (permTensor != nullptr)
+        CHECK_RETURN_STATUS(hipHostFree(permTensor));
     if(testCase == VIGNETTE)
         CHECK_RETURN_STATUS(hipHostFree(intensity));
     if(testCase == RICAP)
@@ -1791,6 +1825,8 @@ int main(int argc, char **argv)
         CHECK_RETURN_STATUS(hipHostFree(cameraMatrix));
         CHECK_RETURN_STATUS(hipHostFree(distortionCoeffs));
     }
+    CHECK_RETURN_STATUS(hipHostFree(srcDescriptorPtr3D));
+    CHECK_RETURN_STATUS(hipHostFree(dstDescriptorPtr3D));
     if(testCase == REMAP)
     {
         free(rowRemapTable);
@@ -1824,6 +1860,8 @@ int main(int argc, char **argv)
         CHECK_RETURN_STATUS(hipHostFree(greyFactor));
     if(roiTensor != NULL)
         CHECK_RETURN_STATUS(hipHostFree(roiTensor));
+    if(transposeRoiTensor != NULL)
+        CHECK_RETURN_STATUS(hipHostFree(transposeRoiTensor));
     if(testCase == JITTER)
         CHECK_RETURN_STATUS(hipHostFree(kernelSizeTensor));
     free(input);
