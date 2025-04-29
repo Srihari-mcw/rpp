@@ -122,7 +122,7 @@ extern "C" {
  * \retval rppStatusUnsupportedOp
  */
 extern "C" SHARED_PUBLIC rppStatus_t rppCreate(rppHandle_t* handle, size_t nBatchSize, Rpp32u numThreads = 0, void* stream = nullptr, RppBackend backend = RppBackend::RPP_HOST_BACKEND);
-
+extern "C" SHARED_PUBLIC rppStatus_t rppCreateUpdated(rppHandle_t* handle, size_t nBatchSize, Rpp32u numThreads, const std::vector<void*>& streams, RppBackend backend = RppBackend::RPP_HOST_BACKEND);
 /*! \brief Destroys RPP handle for HOST/HIP/OCL backend batch processing.
  * \details Function to destroy a RPP handle's host/device memory allocation. To be called in the end to break down the RPP environment.
  * \param [in] handle RPP handle of type <tt> \ref rppHandle_t</tt>.
