@@ -176,10 +176,57 @@ int main(int argc, char **argv)
     double maxWallTime = 0, minWallTime = 500, avgWallTime = 0;
     string testCaseName;
     cout << "\nRunning " << func << " " << numRuns << " times (each time with a batch size of " << batchSize << " audio files) and computing mean statistics...";
+    
+    printf("Source Length Tensor : ");
+    for(int i1 = 0; i1 < batchSize; i1++) {
+        printf("%d ", srcLengthTensor[i1]);
+    }
+    printf("\n");
+    printf("Channel Tensor : ");
+    for(int i1 = 0; i1 < batchSize; i1++) {
+        printf("%d ", channelsTensor[i1]);
+    }
+    printf("\n");
+    printf("maxSrcWidth : %d\n", maxSrcWidth);
+    printf("maxSrcChannels : %d\n", maxSrcWidth);
+    printf("iBufferSize : %d\n", iBufferSize);
+    cout << "Func is " << func << "\n";
+    cout << func + "_input.csv" << "\n";
+    cout << "No of iterations " << noOfIterations <<"\n";
+    cout << "Script path is " << scriptPath << "\n";
+    string testinputfile = scriptPath + "/" + func + "_input.bin";
+    cout << testinputfile << "\n";
+    //exit(0);
+
     for (int iterCount = 0; iterCount < noOfIterations; iterCount++)
     {
         // read and decode audio and fill the audio dim values
         read_audio_batch_and_fill_dims(srcDescPtr, inputf32, audioFilesPath, iterCount, srcLengthTensor, channelsTensor);
+        std::fstream fin(testinputfile, std::ios::in | std::ios::binary);
+        if(fin.is_open())
+        {
+            for(Rpp64u i = 0; i < iBufferSize; i++)
+            {
+                if(!fin.eof())
+                    fin.read(reinterpret_cast<char*>(&inputf32[i]), sizeof(float));
+                else
+                {
+                    //std::cout<<"\nUnable to read all data from golden outputs\n";
+                }
+            }
+        }
+        /*std::ofstream inputFile;
+        std::ofstream binFile(func + "_input.bin", std::ios::binary);
+        binFile.write(reinterpret_cast<const char*>(inputf32), sizeof(float) * iBufferSize);
+        binFile.close();*/
+        /*std::ofstream inputFile;
+        inputFile.open(func + "_input.csv");
+        if (!inputFile.is_open()) {
+            cout << "Failed to open file: " << func + "_input.csv" << std::endl;
+        }
+        for (int i = 0; i < iBufferSize; i++)
+            inputFile << *(inputf32 + i) << "\n";
+        inputFile.close();*/
         for (int perfRunCount = 0; perfRunCount < numRuns; perfRunCount++)
         {
             double startWallTime, endWallTime;

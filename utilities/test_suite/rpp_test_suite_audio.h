@@ -165,12 +165,12 @@ void read_audio_batch_and_fill_dims(RpptDescPtr descPtr, Rpp32f *inputf32, vecto
         channelsTensor[i] = sfinfo.channels;
 
         int bufferLength = sfinfo.frames * sfinfo.channels;
-        readcount = (int) sf_read_float (infile, inputTempF32, bufferLength);
+        /*readcount = (int) sf_read_float (infile, inputTempF32, bufferLength);
         if (readcount != bufferLength)
         {
             std::cout << "Unable to read audio file: "<< audioFilesPath[j].c_str() << std::endl;
             exit(0);
-        }
+        }*/
 
         // Close input
         sf_close (infile);
