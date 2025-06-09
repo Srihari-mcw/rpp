@@ -26,6 +26,7 @@ SOFTWARE.
 #include "ffts.h"
 #include "ffts_attributes.h"
 #include <complex>
+#include <iomanip>
 
 inline bool is_pow2(Rpp64s n) { return (n & (n-1)) == 0; }
 inline bool can_use_real_impl(Rpp64s n) { return is_pow2(n); }
@@ -112,8 +113,8 @@ RppStatus spectrogram_host_tensor(Rpp32f *srcPtr,
     Rpp32u numThreads = handle.GetNumThreads();
 
     // Get windows output
-    omp_set_dynamic(0);
-#pragma omp parallel for num_threads(numThreads)
+//    omp_set_dynamic(0);
+//#pragma omp parallel for num_threads(numThreads)
     for (Rpp32s batchCount = 0; batchCount < srcDescPtr->n; batchCount++)
     {
         Rpp32f *srcPtrTemp = srcPtr + batchCount * srcDescPtr->strides.nStride;
@@ -167,6 +168,8 @@ RppStatus spectrogram_host_tensor(Rpp32f *srcPtr,
             }
         }
 
+        // print output here
+
         // Generate FFT output
         ffts_plan_t *p;
         if(useRealImpl)
@@ -211,7 +214,9 @@ RppStatus spectrogram_host_tensor(Rpp32f *srcPtr,
                 }
             }
 
+            // Print before here
             ffts_execute(p, fftInBuf, fftOutBuf);
+            // Print before here
             auto *complexFft = reinterpret_cast<std::complex<Rpp32f> *>(fftOutBuf);
             Rpp32s outIdx = w;
             if (vertical)
@@ -223,8 +228,12 @@ RppStatus spectrogram_host_tensor(Rpp32f *srcPtr,
                 }
                 else
                 {
-                    for (int i = 0; i < numBins; i++, outIdx += hStride)
+                    for (int i = 0; i < numBins; i++, outIdx += hStride) {
                         dstPtrTemp[outIdx] = std::norm(complexFft[i]);
+                        printf("\n");
+                        std::cout << std::setprecision(20) << complexFft[i] << std::endl;
+                        printf("Output : %.20f", dstPtrTemp[outIdx]);
+                    }
                 }
             }
             else

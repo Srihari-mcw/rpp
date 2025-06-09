@@ -304,7 +304,8 @@ void verify_output(Rpp32f *dstPtr, RpptDescPtr dstDescPtr, RpptImagePatchPtr dst
                 if (!invalidComparision && abs(outVal - refVal) < cutoff)
                     matchedIndices += 1;
                 else
-                    std::cout<<"\n mismatch "<<" row "<<i<<" col "<<j<<" outVal "<<outVal<<" refVal "<<refVal;
+                    printf("");
+                    //std::cout<<"\n mismatch "<<" row "<<i<<" col "<<j<<" outVal "<<outVal<<" refVal "<<refVal;
             }
             dstPtrRow += hStride;
             refPtrRow += hStride;
