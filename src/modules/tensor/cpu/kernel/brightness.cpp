@@ -144,9 +144,10 @@ RppStatus brightness_u8_u8_host_tensor(Rpp8u *srcPtr,
             int vectorLoopCount = 0;
             for (; vectorLoopCount < alignedLength; vectorLoopCount += 32)
             {
-                __m256 p[4], pxcvt[2];
+                __m256 p[4];
+                __m256i pxcvt[2];
 
-                __m256i px = _mm256_loadu_si256((__m128i *)srcPtr);
+                __m256i px = _mm256_loadu_si256((__m256i *)srcPtr);
                 p[0] = _mm256_cvtepi32_ps(_mm256_and_si256(px, and_mask));
                 p[1] = _mm256_cvtepi32_ps(_mm256_and_si256(_mm256_srli_epi32(px, 8), and_mask));
                 p[2] = _mm256_cvtepi32_ps(_mm256_and_si256(_mm256_srli_epi32(px, 16), and_mask));
@@ -157,7 +158,9 @@ RppStatus brightness_u8_u8_host_tensor(Rpp8u *srcPtr,
                 p[3] = _mm256_fmadd_ps(p[3], pBrightnessParams[0], pBrightnessParams[1]);
                 pxcvt[0] = _mm256_packus_epi32(_mm256_cvtps_epi32(p[0]), _mm256_cvtps_epi32(p[1]));
                 pxcvt[1] = _mm256_packus_epi32(_mm256_cvtps_epi32(p[2]), _mm256_cvtps_epi32(p[3]));
-                pxcvt[0] = _mm_packus_epi16(pxcvt[0], pxcvt[1]);
+                pxcvt[0] = _mm256_packus_epi16(pxcvt[0], pxcvt[1]);
+                pxcvt[0] = _mm256_shuffle_epi8(pxcvt[0], shuffle_mask);
+                _mm256_storeu_si256((__m256i*)dstPtr, pxcvt[0]);
                 srcPtr +=32;
                 dstPtr +=32;
             }
