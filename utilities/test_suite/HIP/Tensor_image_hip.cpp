@@ -66,6 +66,7 @@ int main(int argc, char **argv)
     bool randomOutputCase = (randomOutputCases.find(testCase) != randomOutputCases.end());
     bool nonQACase = (nonQACases.find(testCase) != nonQACases.end());
     bool interpolationTypeCase = (interpolationTypeCases.find(testCase) != interpolationTypeCases.end());
+    bool borderTypeCase = (borderTypeCases.find(testCase) != borderTypeCases.end());
     bool reductionTypeCase = (reductionTypeCases.find(testCase) != reductionTypeCases.end());
     bool noiseTypeCase = (noiseTypeCases.find(testCase) != noiseTypeCases.end());
     bool pln1OutTypeCase = (pln1OutTypeCases.find(testCase) != pln1OutTypeCases.end());
@@ -185,6 +186,9 @@ int main(int argc, char **argv)
     RpptInterpolationType interpolationType = RpptInterpolationType::BILINEAR;
     std::string interpolationTypeName = "";
     std::string noiseTypeName = "";
+
+    RpptImageBorderType borderType = RpptImageBorderType::REPLICATE;
+
     if (kernelSizeCase)
     {
         func += "_kernelSize";
@@ -1276,9 +1280,15 @@ int main(int argc, char **argv)
                     testCaseName = "box_filter";
                     Rpp32u kernelSize = additionalParam;
 
+                    if (borderType != RpptImageBorderType::REPLICATE)
+                    {
+                        missingFuncFlag = 1;
+                        break;
+                    }
+
                     startWallTime = omp_get_wtime();
                     if (inputBitDepth == 0 || inputBitDepth == 1 || inputBitDepth == 2 || inputBitDepth == 5)
-                        rppt_box_filter_gpu(d_input, srcDescPtr, d_output, dstDescPtr, kernelSize, roiTensorPtrSrc, roiTypeSrc, handle);
+                        rppt_box_filter_gpu(d_input, srcDescPtr, d_output, dstDescPtr, kernelSize, borderType, roiTensorPtrSrc, roiTypeSrc, handle);
                     else
                         missingFuncFlag = 1;
 
