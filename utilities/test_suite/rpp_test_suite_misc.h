@@ -69,7 +69,7 @@ void compute_strides(RpptGenericDescPtr descriptorPtr)
 }
 
 // Retrieve path for bin file
-string get_path(Rpp32u nDim, Rpp32u readType, string scriptPath, string testCase, Rpp32u bitDepth, bool isMeanStd = false)
+string get_path(Rpp32u nDim, Rpp32u readType, string scriptPath, string testCase, Rpp32u bitDepth, bool broadCastFlag, bool isMeanStd = false)
 {
     string folderPath, suffix, bitDepthStr;
     if (bitDepth == 0)
@@ -98,15 +98,18 @@ string get_path(Rpp32u nDim, Rpp32u readType, string scriptPath, string testCase
     else if (readType == 1) // Output
     {
         folderPath = "/../REFERENCE_OUTPUTS_MISC/" + testCase + "/";
-        suffix = testCase + "_" + std::to_string(nDim) + "d_output_" + bitDepthStr + ".bin";
+        if(broadCastFlag == 1)
+            suffix = testCase + "_" + std::to_string(nDim) + "d_broadcast_output_" + bitDepthStr + ".bin";
+        else
+            suffix = testCase + "_" + std::to_string(nDim) + "d_output_" + bitDepthStr + ".bin";
     }
-
+    std::cout<<"\n"+scriptPath + folderPath + suffix+"\n";
     return scriptPath + folderPath + suffix;
 }
 
 // Read data from Bin file
 template <typename T>
-void read_data(T *data, Rpp32u nDim, Rpp32u readType, string scriptPath, string testCase, Rpp32u bitDepth, bool isMeanStd = false)
+void read_data(T *data, Rpp32u nDim, Rpp32u readType, string scriptPath, string testCase, Rpp32u bitDepth, bool broadCastFlag, bool isMeanStd = false)
 {
     if (nDim < 2 || nDim > 4)
     {
@@ -115,12 +118,12 @@ void read_data(T *data, Rpp32u nDim, Rpp32u readType, string scriptPath, string 
             exit(0);
         }
     }
-    std::string dataPath = get_path(nDim, readType, scriptPath, testCase, bitDepth, isMeanStd);
+    std::string dataPath = get_path(nDim, readType, scriptPath, testCase, bitDepth, broadCastFlag, isMeanStd);
     read_bin_file(dataPath, data);
 }
 
 // Fill the starting indices and length of ROI values
-void fill_roi_values(Rpp32u nDim, Rpp32u batchSize, Rpp32u *roiTensor, bool qaMode, Rpp32u flag = 2)
+void fill_roi_values(Rpp32u nDim, Rpp32u batchSize, Rpp32u *roiTensor, bool qaMode, Rpp32u flag = 0)
 {
     if(qaMode)
     {
@@ -129,6 +132,8 @@ void fill_roi_values(Rpp32u nDim, Rpp32u batchSize, Rpp32u *roiTensor, bool qaMo
             case 2:
             {
                 std::array<Rpp32u, 4> roi = {0, 0, 100, 100};
+                if(flag == 1)
+                    roi = {0, 0, 100, 1};
                 for(int i = 0, j = 0; i < batchSize ; i++, j += 4)
                     std::copy(roi.begin(), roi.end(), &roiTensor[j]);
                 break;
@@ -136,6 +141,8 @@ void fill_roi_values(Rpp32u nDim, Rpp32u batchSize, Rpp32u *roiTensor, bool qaMo
             case 3:
             {
                 std::array<Rpp32u, 6> roi = {0, 0, 0, 25, 25, 32};
+                if(flag == 1)
+                    roi = {0, 0, 0, 25, 25, 1};
                 for(int i = 0, j = 0; i < batchSize ; i++, j += 6)
                     std::copy(roi.begin(), roi.end(), &roiTensor[j]);
                 break;
@@ -144,6 +151,8 @@ void fill_roi_values(Rpp32u nDim, Rpp32u batchSize, Rpp32u *roiTensor, bool qaMo
             case 4:
             {
                 std::array<Rpp32u, 8> roi = {0, 0, 0, 0, 4, 10, 25, 40};
+                if(flag == 1)
+                    roi = {0, 0, 0, 0, 4, 10, 25, 1};
                 for(int i = 0, j = 0; i < batchSize ; i++, j += 8)
                     std::copy(roi.begin(), roi.end(), &roiTensor[j]);
                 break;
@@ -160,8 +169,6 @@ void fill_roi_values(Rpp32u nDim, Rpp32u batchSize, Rpp32u *roiTensor, bool qaMo
                 std::array<Rpp32u, 4> roi = {0, 0, 1920, 1080};
                 if(flag == 1)
                     roi = {0, 0, 1920, 1};
-                if(flag == 2)
-                    roi = {0, 0, 1920, 1080};
                 for(int i = 0, j = 0; i < batchSize ; i++, j += 4)
                     std::copy(roi.begin(), roi.end(), &roiTensor[j]);
                 break;
@@ -178,8 +185,6 @@ void fill_roi_values(Rpp32u nDim, Rpp32u batchSize, Rpp32u *roiTensor, bool qaMo
                 std::array<Rpp32u, 8> roi = {0, 0, 0, 0, 4, 2, 1, 10};
                 if(flag == 1)
                     roi = {0, 0, 0, 0, 4, 1, 2, 1};
-                if(flag == 2)
-                    roi = {0, 0, 0, 0, 4, 2, 2, 10};
                 for(int i = 0, j = 0; i < batchSize ; i++, j += 8)
                     std::copy(roi.begin(), roi.end(), &roiTensor[j]);
                 break;
@@ -352,7 +357,7 @@ void fill_mean_stddev_values(Rpp32u nDim, Rpp32u size, Rpp32f *meanTensor,
         }
         std::vector<Rpp32f> paramBuf(numValues * 2);
         Rpp32f *data = paramBuf.data();
-        read_data(data, nDim, 0, scriptPath, "normalize", bitDepth, true);
+        read_data(data, nDim, 0, scriptPath, "normalize", bitDepth, 0, true);
         memcpy(meanTensor, data + paramStride, size * sizeof(Rpp32f));
         memcpy(stdDevTensor, data + numValues + paramStride, size * sizeof(Rpp32f));
     }
@@ -449,9 +454,9 @@ void fill_perm_values(Rpp32u nDim, Rpp32u *permTensor, bool qaMode, int permOrde
     }
 }
 
-Rpp32u get_bin_size(Rpp32u nDim, Rpp32u readType, string scriptPath, string testCase, Rpp32u bitDepth)
+Rpp32u get_bin_size(Rpp32u nDim, Rpp32u readType, string scriptPath, string testCase, Rpp32u bitDepth, int broadCastFlag)
 {
-    string refFile = get_path(nDim, readType, scriptPath, testCase, bitDepth);
+    string refFile = get_path(nDim, readType, scriptPath, testCase, bitDepth, broadCastFlag);
     std::ifstream filestream(refFile, ios_base::in | ios_base::binary);
     filestream.seekg(0, ios_base::end);
     Rpp32u filesize = filestream.tellg();
@@ -637,7 +642,7 @@ inline void convert_output_bitdepth_to_f32(void *output, Rpp32f *outputf32, int 
 
 // Compares output with reference outputs and validates QA
 void compare_output(void *output, Rpp32u nDim, Rpp32u batchSize, Rpp32u bitDepth, Rpp32u bufferLength, std::string dst,
-                    std::string funcName, std::string testCase, int additionalParam, std::string scriptPath, bool isMeanStd = false)
+                    std::string funcName, std::string testCase, int additionalParam, std::string scriptPath, bool broadCastFlag, bool isMeanStd = false)
 {
     // Allocate and read reference data based on bitDepth
     RpptDataType dataType;
@@ -653,11 +658,13 @@ void compare_output(void *output, Rpp32u nDim, Rpp32u batchSize, Rpp32u bitDepth
     }
     Rpp32u goldenOutputLength;
     if(testCase == "log")
-        goldenOutputLength = get_bin_size(nDim, 1, scriptPath, testCase, 2);
+        goldenOutputLength = get_bin_size(nDim, 1, scriptPath, testCase, 2, broadCastFlag);
+    else if(testCase == "tensor_and_tensor" || testCase == "tensor_or_tensor" || testCase == "tensor_xor_tensor")
+        goldenOutputLength = get_bin_size(nDim, 1, scriptPath, testCase, bitDepth, broadCastFlag);
     else
-        goldenOutputLength = get_bin_size(nDim, 1, scriptPath, testCase, bitDepth);
+        goldenOutputLength = get_bin_size(nDim, 1, scriptPath, testCase, bitDepth, broadCastFlag);
     void *refOutput = calloc(goldenOutputLength, get_size_of_data_type(dataType));
-    read_data(refOutput, nDim, 1, scriptPath, testCase, bitDepth);
+    read_data(refOutput, nDim, 1, scriptPath, testCase, bitDepth, broadCastFlag);
     int subVariantStride = 0;
     if(testCase == "normalize")
     {

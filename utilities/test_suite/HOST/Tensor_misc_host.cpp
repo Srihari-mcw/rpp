@@ -48,8 +48,12 @@ int main(int argc, char **argv)
     qaMode = (testType == 0);
     bool axisMaskCase = (testCase == NORMALIZE || testCase == CONCAT);
     bool permOrderCase = (testCase == TRANSPOSE);
-    int additionalParam = (axisMaskCase || permOrderCase) ? atoi(argv[8]) : 1;
-    int axisMask = additionalParam, permOrder = additionalParam;
+    bool broadCastCase = (testCase == TENSOR_AND_TENSOR || testCase == TENSOR_OR_TENSOR || testCase == TENSOR_XOR_TENSOR);
+    int additionalParam = (axisMaskCase || permOrderCase || broadCastCase) ? atoi(argv[8]) : 1;
+    int axisMask = additionalParam, permOrder = additionalParam, broadCastFlag = additionalParam;
+
+    if ((broadCastCase && bitDepth != 0) || (broadCastFlag && !broadCastCase))
+        return RPP_ERROR_NOT_IMPLEMENTED;
 
     if(bitDepth == 4 && testCase != LOG)
         return RPP_ERROR_NOT_IMPLEMENTED;
@@ -62,6 +66,7 @@ int main(int argc, char **argv)
 
     if(testCase == LOG1P && bitDepth != 7)
         return RPP_ERROR_NOT_IMPLEMENTED;
+
     if(qaMode && batchSize != 3)
     {
         cout<<"QA mode can only run with batchsize 3"<<std::endl;
@@ -75,7 +80,7 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    std::string bitdepthStr;
+    std::string bitdepthStr; // Variable to store the bit depth as a string
     switch (bitDepth)
     {
         case 0: bitdepthStr = "u8"; break;
@@ -95,10 +100,12 @@ int main(int argc, char **argv)
         func += "_axisMask" + std::to_string(axisMask);
     if(permOrderCase)
         func += "_permOrder" + std::to_string(permOrder);
+    if(broadCastFlag)
+        func += "_broadcast";
 
     // fill roi based on mode and number of dimensions
     Rpp32u *roiTensor = static_cast<Rpp32u *>(calloc(nDim * 2 * batchSize, sizeof(Rpp32u)));
-    Rpp32u *roiTensorSecond ;
+    Rpp32u *roiTensorSecond = nullptr;
     Rpp32u *dstRoiTensor = static_cast<Rpp32u *>(calloc(nDim * 2 * batchSize, sizeof(Rpp32u)));
     
     fill_roi_values(nDim, batchSize, roiTensor, qaMode);
@@ -109,11 +116,10 @@ int main(int argc, char **argv)
         fill_roi_values(nDim, batchSize, roiTensorSecond, qaMode);
         dstRoiTensor[nDim + axisMask] = roiTensor[nDim + axisMask] + roiTensorSecond[nDim + axisMask];
     }
-    if(testCase == TENSOR_AND_TENSOR || testCase == TENSOR_OR_TENSOR || testCase == TENSOR_XOR_TENSOR)
-    {
-        roiTensorSecond = static_cast<Rpp32u *>(calloc(nDim * 2 * batchSize, sizeof(Rpp32u)));
-        fill_roi_values(nDim, batchSize, roiTensorSecond, qaMode);
-    }
+
+    roiTensorSecond = static_cast<Rpp32u *>(calloc(nDim * 2 * batchSize, sizeof(Rpp32u)));
+    fill_roi_values(nDim, batchSize, roiTensorSecond, qaMode, broadCastFlag);
+
     // set src/dst generic tensor descriptors
     RpptGenericDesc srcDescriptor, srcDescriptorSecond, dstDescriptor;
     RpptGenericDescPtr srcDescriptorPtrND, srcDescriptorPtrNDSecond, dstDescriptorPtrND;
@@ -135,7 +141,7 @@ int main(int argc, char **argv)
     }
     set_generic_descriptor_layout(srcDescriptorPtrND, dstDescriptorPtrND, nDim, toggle, qaMode);
 
-    if(testCase == CONCAT || testCase == TENSOR_AND_TENSOR || testCase == TENSOR_OR_TENSOR || testCase == TENSOR_XOR_TENSOR)
+    if(testCase == CONCAT || broadCastCase)
     {
         srcDescriptorPtrNDSecond = &srcDescriptorSecond;
         set_generic_descriptor(srcDescriptorPtrNDSecond, nDim, offSetInBytes, bitDepth, batchSize, roiTensorSecond);
@@ -170,7 +176,7 @@ int main(int argc, char **argv)
     void *input = nullptr, *inputSecond = nullptr, *output = nullptr;
     input = calloc(iBufferSizeInBytes, 1);
     output = calloc(oBufferSizeInBytes, 1);
-    if(testCase == CONCAT || testCase == TENSOR_AND_TENSOR || testCase == TENSOR_OR_TENSOR || testCase == TENSOR_XOR_TENSOR)
+    if(testCase == CONCAT || broadCastCase)
     {
         for(int i = 0; i  <= nDim; i++)
             iBufferSizeSecond *= srcDescriptorPtrNDSecond->dims[i];
@@ -181,13 +187,13 @@ int main(int argc, char **argv)
     if(qaMode)
     {
         if(bitDepth == 7) // log1p
-            read_data(input, nDim, 0, scriptPath, funcName, 2);
+            read_data(input, nDim, 0, scriptPath, funcName, 2, broadCastFlag);
         else if(bitDepth == 4) // log
-            read_data(input, nDim, 0, scriptPath, funcName, 0);
+            read_data(input, nDim, 0, scriptPath, funcName, 0, broadCastFlag);
         else
-            read_data(input, nDim, 0, scriptPath, funcName, bitDepth);
+            read_data(input, nDim, 0, scriptPath, funcName, bitDepth, broadCastFlag);
         if(testCase == CONCAT)
-            read_data(inputSecond, nDim, 0, scriptPath, funcName, bitDepth);
+            read_data(inputSecond, nDim, 0, scriptPath, funcName, bitDepth, broadCastFlag);
     }
     else
     {
@@ -226,12 +232,11 @@ int main(int argc, char **argv)
         for (int i = 0; i < iBufferSize; i++)
             inputI16[i] = static_cast<Rpp16s>(inputF32[i]);
     }
-
-    if(qaMode && (testCase == TENSOR_AND_TENSOR || testCase == TENSOR_OR_TENSOR || testCase == TENSOR_XOR_TENSOR))
+    else if(qaMode && broadCastCase)
     {
         Rpp8u *inputSecondTemp = static_cast<Rpp8u *>(inputSecond);
         Rpp8u *inputU8 = static_cast<Rpp8u *>(input);
-        for (int i = 0; i < iBufferSize; i++)
+        for (int i = 0; i < iBufferSizeSecond; i++)
             inputSecondTemp[i] = inputU8[i+1];
     }
 
@@ -353,7 +358,7 @@ int main(int argc, char **argv)
                 testCaseName  = "tensor_and_tensor";
 
                 startWallTime = omp_get_wtime();
-                if (bitDepth == 0 || bitDepth == 1 || bitDepth == 2 || bitDepth == 5 || bitDepth == 6 || bitDepth == 7 || bitDepth == 8 || bitDepth == 9)
+                if (bitDepth == 0)
                     rppt_tensor_and_tensor_host(input, inputSecond, srcDescriptorPtrND, srcDescriptorPtrNDSecond, output, dstDescriptorPtrND, roiTensor, roiTensorSecond, handle);
                 else
                     missingFuncFlag = 1;
@@ -365,23 +370,11 @@ int main(int argc, char **argv)
                 testCaseName  = "tensor_or_tensor";
 
                 startWallTime = omp_get_wtime();
-                if (bitDepth == 0 || bitDepth == 1 || bitDepth == 2 || bitDepth == 5 || bitDepth == 6 || bitDepth == 7 || bitDepth == 8 || bitDepth == 9)
+                if (bitDepth == 0)
                     rppt_tensor_or_tensor_host(input, inputSecond, srcDescriptorPtrND, srcDescriptorPtrNDSecond, output, dstDescriptorPtrND, roiTensor, roiTensorSecond, handle);
                 else
                     missingFuncFlag = 1;
-                printf("\n");
-                Rpp8u* ip1 = (Rpp8u*)input;
-                for(int i = 0; i < iBufferSize; i++)
-                    printf("\n src1 : index [%d] : %d \t",i, ip1[i]);
-                printf("\n");
-                Rpp8u* ip2 = (Rpp8u*)inputSecond;
-                for(int i = 0; i < iBufferSizeSecond; i++)
-                    printf("\nsrc2 : index [%d] : %d \t",i, ip2[i]);
-                printf("\n");
-                Rpp8u* op = (Rpp8u*)output;
-                for(int i = 0; i < oBufferSize; i++)
-                    printf("\n index [%d] : %d \t",i, op[i]);
-                printf("\n");
+
                 break;
             }
             case TENSOR_XOR_TENSOR:
@@ -389,23 +382,11 @@ int main(int argc, char **argv)
                 testCaseName  = "tensor_xor_tensor";
 
                 startWallTime = omp_get_wtime();
-               if (bitDepth == 0 || bitDepth == 1 || bitDepth == 2 || bitDepth == 5 || bitDepth == 6 || bitDepth == 7 || bitDepth == 8 || bitDepth == 9)
+               if (bitDepth == 0)
                     rppt_tensor_xor_tensor_host(input, inputSecond, srcDescriptorPtrND, srcDescriptorPtrNDSecond, output, dstDescriptorPtrND, roiTensor, roiTensorSecond, handle);
                 else
                     missingFuncFlag = 1;
-                printf("\n");
-                Rpp8u* ip1 = (Rpp8u*)input;
-                for(int i = 0; i < iBufferSize; i++)
-                    printf("%3d \t", ip1[i]);
-                printf("\n");
-                Rpp8u* ip2 = (Rpp8u*)inputSecond;
-                for(int i = 0; i < iBufferSizeSecond; i++)
-                    printf("%3d \t", ip2[i]);
-                printf("\n");
-                Rpp8u* op = (Rpp8u*)output;
-                for(int i = 0; i < oBufferSize; i++)
-                    printf("%3d \t", op[i]);
-                printf("\n");
+
                 break;
             }
             default:
@@ -443,7 +424,7 @@ int main(int argc, char **argv)
 
     if(qaMode)
     {
-        compare_output(output, nDim, batchSize, bitDepth, oBufferSize, dst, func, testCaseName, additionalParam, scriptPath, externalMeanStd);
+        compare_output(output, nDim, batchSize, bitDepth, oBufferSize, dst, func, testCaseName, additionalParam, scriptPath, broadCastFlag, externalMeanStd);
     }
     else
     {
@@ -457,14 +438,14 @@ int main(int argc, char **argv)
     rppDestroy(handle, backend);
 
     free(input);
-    if(testCase == CONCAT)
+    if(inputSecond)
         free(inputSecond);
     free(output);
-    if (testCase == LOG1P && inputI16 != nullptr)
+    if(testCase == LOG1P && inputI16 != nullptr)
         free(inputI16);
     free(roiTensor);
     free(dstRoiTensor);
-    if (testCase == CONCAT)
+    if(roiTensorSecond)
         free(roiTensorSecond);
     if(meanTensor != nullptr)
         free(meanTensor);

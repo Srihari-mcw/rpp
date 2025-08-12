@@ -129,6 +129,7 @@ def rpp_test_suite_parser_and_validator():
     parser.add_argument('--profiling', type = str , default = 'NO', help = 'Run with profiler? - (YES/NO)', required = False)
     parser.add_argument('--qa_mode', type = int, default = 0, help = "Run with qa_mode? Outputs from tests will be compared with golden outputs - (0 / 1)", required = False)
     parser.add_argument('--batch_size', type = int, default = 1, help = "Specifies the batch size to use for running tests. Default is 1.")
+    parser.add_argument('--broadcast', type = int, nargs = "+", default = [0, 1], help = "Specifies if the broadcasting case to be used. Default is 0.")
     parser.add_argument('--preserve_output', type = int, default = 1, help = "preserves the output of the program - (0 = override output / 1 = preserve output )" )
     print_case_list(miscAugmentationMap, "HIP", parser)
     args = parser.parse_args()
@@ -192,6 +193,7 @@ batchSize = args.batch_size
 qaMode = args.qa_mode
 if qaMode:
     testType = 0
+broadcast = args.broadcast
 preserveOutput = args.preserve_output
 outFilePath = " "
 
@@ -230,6 +232,8 @@ subprocess.call(["make", "-j16"], cwd=".")    # nosec
 
 supportedCaseList = [key for key, values in miscAugmentationMap.items() if "HIP" in values]
 noCaseSupported = all(int(case) not in supportedCaseList for case in caseList)
+broadcastableCases = ["tensor_and_tensor", "tensor_or_tensor", "tensor_xor_tensor"] # Add other broadcast functions here
+
 if noCaseSupported:
     print("\ncase numbers %s are not supported" % caseList)
     exit(0)
@@ -246,6 +250,9 @@ for case in caseList:
         elif miscAugmentationMap[int(case)][0] == "concat":
             for axisMask in range(0, numDims):
                 run_test(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, outFilePath, axisMask, profilingOption)
+        elif miscAugmentationMap[int(case)][0] in broadcastableCases:
+            for broadcastFlag in broadcast:
+                run_test(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, outFilePath, broadcastFlag, profilingOption)
         else:
             run_test(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, outFilePath, "", profilingOption)
 

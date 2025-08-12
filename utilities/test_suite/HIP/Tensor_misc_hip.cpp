@@ -49,36 +49,40 @@ int main(int argc, char **argv)
     qaMode = (testType == 0);
     bool axisMaskCase = (testCase == NORMALIZE || testCase == CONCAT);
     bool permOrderCase = (testCase == TRANSPOSE);
-    int additionalParam = (axisMaskCase || permOrderCase) ? atoi(argv[8]) : 1;
-    int axisMask = additionalParam, permOrder = additionalParam;
+    bool broadCastCase = (testCase == TENSOR_AND_TENSOR || testCase == TENSOR_OR_TENSOR || testCase == TENSOR_XOR_TENSOR);
+    int additionalParam = (axisMaskCase || permOrderCase || broadCastCase) ? atoi(argv[8]) : 1;
+    int axisMask = additionalParam, permOrder = additionalParam, broadCastFlag = additionalParam;
 
-    if ((bitDepth == 4 && testCase != LOG))
+    if((broadCastCase && bitDepth != 0) || (broadCastFlag && !broadCastCase))
         return RPP_ERROR_NOT_IMPLEMENTED;
     
-    if ((bitDepth == 7 && testCase != LOG1P))
+    if(bitDepth == 4 && testCase != LOG)
+        return RPP_ERROR_NOT_IMPLEMENTED;
+    
+    if(bitDepth == 7 && testCase != LOG1P)
         return RPP_ERROR_NOT_IMPLEMENTED;
 
-    if (testCase == LOG && !(bitDepth == 2 || bitDepth == 4))
+    if(testCase == LOG && !(bitDepth == 2 || bitDepth == 4))
         return RPP_ERROR_NOT_IMPLEMENTED;
 
-    if (testCase == LOG1P && bitDepth != 7)
+    if(testCase == LOG1P && bitDepth != 7)
         return RPP_ERROR_NOT_IMPLEMENTED;
 
-    if (qaMode && batchSize != 3)
+    if(qaMode && batchSize != 3)
     {
         cout<<"QA mode can only run with batchsize 3"<<std::endl;
         return -1;
     }
 
     string funcName = augmentationMiscMap[testCase];
-    if (funcName.empty())
+    if(funcName.empty())
     {
         cout << "\ncase " << testCase << " is not supported\n";
         return -1;
     }
 
     std::string bitdepthStr; // Variable to store the bit depth as a string
-    switch (bitDepth)
+    switch(bitDepth)
     {
         case 0: bitdepthStr = "u8"; break;
         case 1: bitdepthStr = "f16"; break;
@@ -92,15 +96,18 @@ int main(int argc, char **argv)
     }
 
     std::string func = funcName + "_" + std::to_string(nDim) + "d_" + bitdepthStr;
-    if (axisMaskCase)
+    if(axisMaskCase)
         func += "_axisMask" + std::to_string(axisMask);
-    if (permOrderCase)
+    if(permOrderCase)
         func += "_permOrder" + std::to_string(permOrder);
+    if(broadCastFlag)
+        func += "_broadcast";
 
     // fill roi based on mode and number of dimensions
     Rpp32u *roiTensor, *dstRoiTensor, *roiTensorSecond = nullptr;
     CHECK_RETURN_STATUS(hipHostMalloc(&roiTensor, nDim * 2 * batchSize, sizeof(Rpp32u)));
     CHECK_RETURN_STATUS(hipHostMalloc(&dstRoiTensor, nDim * 2 * batchSize * sizeof(Rpp32u)));
+
     fill_roi_values(nDim, batchSize, roiTensor, qaMode);
     memcpy(dstRoiTensor, roiTensor, nDim * 2 * batchSize * sizeof(Rpp32u));
     if(testCase == CONCAT)
@@ -109,11 +116,8 @@ int main(int argc, char **argv)
         fill_roi_values(nDim, batchSize, roiTensorSecond, qaMode);
         dstRoiTensor[nDim + axisMask] = roiTensor[nDim + axisMask] + roiTensorSecond[nDim + axisMask]; 
     }
-    if(testCase == TENSOR_AND_TENSOR || testCase == TENSOR_OR_TENSOR || testCase == TENSOR_XOR_TENSOR)
-    {
-        CHECK_RETURN_STATUS(hipHostMalloc(&roiTensorSecond, nDim * 2 * batchSize * sizeof(Rpp32u)));
-        fill_roi_values(nDim, batchSize, roiTensorSecond, qaMode);
-    }
+    CHECK_RETURN_STATUS(hipHostMalloc(&roiTensorSecond, nDim * 2 * batchSize * sizeof(Rpp32u)));
+    fill_roi_values(nDim, batchSize, roiTensorSecond, qaMode, broadCastFlag);
 
     // set src/dst generic tensor descriptors
     RpptGenericDescPtr srcDescriptorPtrND, srcDescriptorPtrNDSecond, dstDescriptorPtrND;
@@ -136,7 +140,7 @@ int main(int argc, char **argv)
     }
     set_generic_descriptor_layout(srcDescriptorPtrND, dstDescriptorPtrND, nDim, toggle, qaMode);
 
-    if(testCase == CONCAT || testCase == TENSOR_AND_TENSOR || testCase == TENSOR_OR_TENSOR || testCase == TENSOR_XOR_TENSOR)
+    if(testCase == CONCAT || broadCastCase)
     {
         CHECK_RETURN_STATUS(hipHostMalloc(&srcDescriptorPtrNDSecond, sizeof(RpptGenericDesc)));
         set_generic_descriptor(srcDescriptorPtrNDSecond, nDim, offSetInBytes, bitDepth, batchSize, roiTensorSecond);
@@ -153,14 +157,9 @@ int main(int argc, char **argv)
     {
         iBufferSize *= srcDescriptorPtrND->dims[i];
         oBufferSize *= dstDescriptorPtrND->dims[i];
-        if (testCase == CONCAT || testCase == TENSOR_AND_TENSOR || testCase == TENSOR_OR_TENSOR || testCase == TENSOR_XOR_TENSOR)
-            iBufferSizeSecond *= srcDescriptorPtrNDSecond->dims[i];
     }
 
-    iBufferSizeInBytes = iBufferSize * get_size_of_data_type(srcDescriptorPtrND->dataType);
-    oBufferSizeInBytes = oBufferSize * get_size_of_data_type(dstDescriptorPtrND->dataType);
-
-    if (testCase == LOG1P && bitDepth == 7)
+    if(testCase == LOG1P && bitDepth == 7)
     {
         // LOG1P expects int16 input (we transform F32->I16 in inputI16), but the 'input' buffer used
         // here is F32 (we store F32 to then convert). So allocate as F32 to hold that data.
@@ -181,24 +180,25 @@ int main(int argc, char **argv)
     output = calloc(oBufferSize, get_size_of_data_type(dstDescriptorPtrND->dataType));
     CHECK_RETURN_STATUS(hipMalloc(&d_input, iBufferSizeInBytes));
     CHECK_RETURN_STATUS(hipMalloc(&d_output, oBufferSizeInBytes));
-
-    if (testCase == CONCAT || testCase == TENSOR_AND_TENSOR || testCase == TENSOR_OR_TENSOR || testCase == TENSOR_XOR_TENSOR)
+    if(testCase == CONCAT || broadCastCase)
     {
-        Rpp64u iBufferSizeSecondInBytes = iBufferSizeSecond * get_size_of_data_type(srcDescriptorPtrNDSecond->dataType);
-        inputSecond = calloc(iBufferSizeSecond, get_size_of_data_type(srcDescriptorPtrNDSecond->dataType));
+        for(int i = 0; i  <= nDim; i++)
+            iBufferSizeSecond *= srcDescriptorPtrNDSecond->dims[i];
+        iBufferSizeSecondInBytes = iBufferSizeSecond * get_size_of_data_type(srcDescriptorPtrNDSecond->dataType);
+        inputSecond = calloc(iBufferSizeSecond, 1);
         CHECK_RETURN_STATUS(hipMalloc(&d_inputSecond, iBufferSizeSecondInBytes));
     }
     // read input data
     if(qaMode)
     {
         if(bitDepth == 7) // log1p
-            read_data(input, nDim, 0, scriptPath, funcName, 2);
+            read_data(input, nDim, 0, scriptPath, funcName, 2, broadCastFlag);
         else if(bitDepth == 4) // log
-            read_data(input, nDim, 0, scriptPath, funcName, 0);
+            read_data(input, nDim, 0, scriptPath, funcName, 0, broadCastFlag);
         else
-            read_data(input, nDim, 0, scriptPath, funcName, bitDepth);
+            read_data(input, nDim, 0, scriptPath, funcName, bitDepth, broadCastFlag);
         if(testCase == CONCAT)
-            read_data(inputSecond, nDim, 0, scriptPath, funcName, bitDepth);
+            read_data(inputSecond, nDim, 0, scriptPath, funcName, bitDepth, broadCastFlag);
     }
     else
     {
@@ -234,7 +234,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if (testCase == LOG1P)
+    if(testCase == LOG1P)
     {
         Rpp64u iBufferSizeInBytesI16 = iBufferSize * sizeof(Rpp16s);
         inputI16 = calloc(iBufferSize, sizeof(Rpp16s));
@@ -245,7 +245,7 @@ int main(int argc, char **argv)
         for (int i = 0; i < iBufferSize; i++)
             inputI16_cast[i] = static_cast<Rpp16s>(inputF32[i]);
     }
-    else if (qaMode && (testCase == TENSOR_AND_TENSOR || testCase == TENSOR_OR_TENSOR || testCase == TENSOR_XOR_TENSOR))
+    else if(qaMode && broadCastCase)
     {
         Rpp8u *inputSecondTemp = static_cast<Rpp8u *>(inputSecond);
         Rpp8u *inputU8 = static_cast<Rpp8u *>(input);
@@ -255,19 +255,19 @@ int main(int argc, char **argv)
 
     // Copy data from Host to Device
     CHECK_RETURN_STATUS(hipMemcpy(d_input, input, iBufferSizeInBytes, hipMemcpyHostToDevice));
-    if (testCase == CONCAT || testCase == TENSOR_AND_TENSOR || testCase == TENSOR_OR_TENSOR || testCase == TENSOR_XOR_TENSOR)
+    if(testCase == CONCAT || broadCastCase)
     {
         Rpp64u iBufferSizeSecondInBytes = iBufferSizeSecond * get_size_of_data_type(srcDescriptorPtrNDSecond->dataType);
         CHECK_RETURN_STATUS(hipMemcpy(d_inputSecond, inputSecond, iBufferSizeSecondInBytes, hipMemcpyHostToDevice));
     }
-    if (testCase == LOG1P)
+    if(testCase == LOG1P)
     {
         Rpp64u iBufferSizeInBytesI16 = iBufferSize * sizeof(Rpp16s);
         CHECK_RETURN_STATUS(hipMemcpy(d_inputI16, inputI16, iBufferSizeInBytesI16, hipMemcpyHostToDevice));
     }
 
     Rpp32u *permTensor = nullptr;
-    if (testCase == TRANSPOSE)
+    if(testCase == TRANSPOSE)
         CHECK_RETURN_STATUS(hipHostMalloc(&permTensor, nDim * sizeof(Rpp32u)));
 
     rppHandle_t handle;
@@ -454,7 +454,7 @@ int main(int argc, char **argv)
     if(qaMode)
     {
         CHECK_RETURN_STATUS(hipMemcpy(output, d_output, oBufferSizeInBytes, hipMemcpyDeviceToHost));
-        compare_output(output, nDim, batchSize, bitDepth, oBufferSize, dst, func, testCaseName, additionalParam, scriptPath, externalMeanStd);
+        compare_output(output, nDim, batchSize, bitDepth, oBufferSize, dst, func, testCaseName, additionalParam, scriptPath, broadCastFlag, externalMeanStd);
     }
     else
     {
