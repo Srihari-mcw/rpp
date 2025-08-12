@@ -103,7 +103,6 @@ string get_path(Rpp32u nDim, Rpp32u readType, string scriptPath, string testCase
         else
             suffix = testCase + "_" + std::to_string(nDim) + "d_output_" + bitDepthStr + ".bin";
     }
-    std::cout<<"\n"+scriptPath + folderPath + suffix+"\n";
     return scriptPath + folderPath + suffix;
 }
 
