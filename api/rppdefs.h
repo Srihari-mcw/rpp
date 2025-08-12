@@ -201,6 +201,16 @@ typedef enum
     rppStatusUnsupportedOp  = -8,
 } rppStatus_t;
 
+/*! \brief RPP Tensor Operations type enum
+ * \ingroup group_rppdefs
+*/
+typedef enum
+{
+    RPP_TENSOR_OP_AND,
+    RPP_TENSOR_OP_OR,
+    RPP_TENSOR_OP_XOR
+} RpptBitwiseOp;
+
 #ifdef LEGACY_SUPPORT
 /*! \brief RPP Operations type enum
  * \ingroup group_rppdefs
@@ -401,7 +411,10 @@ typedef enum
     F32,
     F16,
     I8,
-    I16
+    I16,
+    U16,
+    I32,
+    U32
 } RpptDataType;
 
 /*! \brief RPPT Tensor layout type enum
