@@ -48,12 +48,12 @@ RppStatus tensor_binary_bitwise_op_host_tensor(T *srcPtr1,
                                                Rpp32u vectorIncrement,
                                                Rpp32u *srcPtr1roiTensor,
                                                Rpp32u *srcPtr2roiTensor,
-                                               rpp::Handle& handle) {
-
+                                               rpp::Handle& handle) 
+{
     Rpp32u numThreads = handle.GetNumThreads();
     Rpp32u src1NDim = srcPtr1GenericDescPtr->numDims - 1;
     Rpp32u src2NDim = srcPtr2GenericDescPtr->numDims - 1;
-    //Rpp32u broadcastNDim = dstBroadcastDescPtr->numDims - 1; // Omitting batchSize here to get tensor dimension.
+    // Rpp32u broadcastNDim = dstBroadcastDescPtr->numDims - 1; // Omitting batchSize here to get tensor dimension.
     Rpp32u batchSize = dstGenericDescPtr->dims[0];
 
     omp_set_dynamic(0);
