@@ -95,7 +95,6 @@ int main(int argc, char **argv)
     }
 
     std::string func = funcName + "_" + std::to_string(nDim) + "d_" + bitdepthStr;
-
     if(axisMaskCase)
         func += "_axisMask" + std::to_string(axisMask);
     if(permOrderCase)
@@ -116,10 +115,13 @@ int main(int argc, char **argv)
         fill_roi_values(nDim, batchSize, roiTensorSecond, qaMode);
         dstRoiTensor[nDim + axisMask] = roiTensor[nDim + axisMask] + roiTensorSecond[nDim + axisMask];
     }
-
-    roiTensorSecond = static_cast<Rpp32u *>(calloc(nDim * 2 * batchSize, sizeof(Rpp32u)));
-    fill_roi_values(nDim, batchSize, roiTensorSecond, qaMode, broadCastFlag);
-
+    
+    if(broadCastCase)
+    {
+        roiTensorSecond = static_cast<Rpp32u *>(calloc(nDim * 2 * batchSize, sizeof(Rpp32u)));
+        fill_roi_values(nDim, batchSize, roiTensorSecond, qaMode, broadCastFlag);
+    }
+ 
     // set src/dst generic tensor descriptors
     RpptGenericDesc srcDescriptor, srcDescriptorSecond, dstDescriptor;
     RpptGenericDescPtr srcDescriptorPtrND, srcDescriptorPtrNDSecond, dstDescriptorPtrND;

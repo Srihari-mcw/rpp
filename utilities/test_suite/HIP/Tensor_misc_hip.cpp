@@ -116,8 +116,11 @@ int main(int argc, char **argv)
         fill_roi_values(nDim, batchSize, roiTensorSecond, qaMode);
         dstRoiTensor[nDim + axisMask] = roiTensor[nDim + axisMask] + roiTensorSecond[nDim + axisMask]; 
     }
-    CHECK_RETURN_STATUS(hipHostMalloc(&roiTensorSecond, nDim * 2 * batchSize * sizeof(Rpp32u)));
-    fill_roi_values(nDim, batchSize, roiTensorSecond, qaMode, broadCastFlag);
+    if(broadCastCase)
+    {
+        CHECK_RETURN_STATUS(hipHostMalloc(&roiTensorSecond, nDim * 2 * batchSize * sizeof(Rpp32u)));
+        fill_roi_values(nDim, batchSize, roiTensorSecond, qaMode, broadCastFlag);
+    }
 
     // set src/dst generic tensor descriptors
     RpptGenericDescPtr srcDescriptorPtrND, srcDescriptorPtrNDSecond, dstDescriptorPtrND;
@@ -210,7 +213,7 @@ int main(int argc, char **argv)
                 Rpp8u* inputU8 = static_cast<Rpp8u*>(input);
                 for(int i = 0; i < iBufferSize; i++) 
                     inputU8[i] = static_cast<Rpp8u>(std::rand() % 256);
-                if (testCase == CONCAT)
+                if (testCase == CONCAT || broadCastCase)
                 {
                     Rpp8u* inputSecondU8 = static_cast<Rpp8u*>(inputSecond);
                     for(int i = 0; i < iBufferSizeSecond; i++)
@@ -223,7 +226,7 @@ int main(int argc, char **argv)
                 Rpp32f* inputF32 = static_cast<Rpp32f*>(input);
                 for(int i = 0; i < iBufferSize; i++) 
                     inputF32[i] = static_cast<Rpp32f>(std::rand() % 255);
-                if (testCase == CONCAT)
+                if (testCase == CONCAT || broadCastCase)
                 {
                     Rpp32f* inputSecondF32 = static_cast<Rpp32f*>(inputSecond);
                     for(int i = 0; i < iBufferSizeSecond; i++)
