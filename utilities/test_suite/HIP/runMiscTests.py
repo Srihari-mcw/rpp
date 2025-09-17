@@ -1,7 +1,7 @@
 """
 MIT License
 
-Copyright (c) 2019 - 2024 Advanced Micro Devices, Inc.
+Copyright (c) 2019 - 2025 Advanced Micro Devices, Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -37,8 +37,8 @@ timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 scriptPath = os.path.dirname(os.path.realpath(__file__))
 outFolderPath = os.getcwd()
 buildFolderPath = os.getcwd()
-caseMin = 0
-caseMax = 2
+caseMin = min(miscAugmentationMap.keys())
+caseMax = max(miscAugmentationMap.keys())
 errorLog = [{"notExecutedFunctionality" : 0}]
 
 # Get a list of log files based on a flag for preserving output
@@ -74,39 +74,49 @@ def generate_performance_reports(RESULTS_DIR):
     dfPrint_noIndices = dfPrint_noIndices.to_string(index = False)
     print(dfPrint_noIndices)
 
-def run_unit_test_cmd(numDims, case, numRuns, testType, toggle, batchSize, outFilePath, additionalArg):
-    print("\n./Tensor_misc_hip " + str(case) + " " + str(testType) + " " + str(toggle) + " " + str(numDims) + " " + str(batchSize) + " " + str(numRuns) + " " + str(additionalArg))
-    result = subprocess.Popen([buildFolderPath + "/build/Tensor_misc_hip", str(case), str(testType), str(toggle), str(numDims), str(batchSize), str(numRuns), str(additionalArg), outFilePath, scriptPath], stdout=subprocess.PIPE, stderr=subprocess.PIPE)    # nosec
-    log_detected(result, errorLog, miscAugmentationMap[int(case)][0], get_bit_depth(int(2)), get_misc_func_name(int(case), numDims, additionalArg))
-    print("------------------------------------------------------------------------------------------")
+def run_unit_test_cmd(numDims, case, numRuns, testType, toggle, batchSize, outFilePath, bitDepths, additionalArg):
+    for bitDepth in bitDepths:
+        print("\n./Tensor_misc_hip " + str(case) + " " + str(testType) + " " + str(toggle) + " " + str(numDims) + " " + str(batchSize) + " " + str(numRuns) + " " + str(bitDepth) + " " + str(additionalArg))
+        result = subprocess.Popen([buildFolderPath + "/build/Tensor_misc_hip", str(case), str(testType), str(toggle), str(numDims), str(batchSize), str(numRuns), str(bitDepth), str(additionalArg), outFilePath, scriptPath], stdout=subprocess.PIPE, stderr=subprocess.PIPE)    # nosec
+        log_detected(result, errorLog, miscAugmentationMap[int(case)][0], get_bit_depth(int(bitDepth)), get_misc_func_name(int(case), numDims, additionalArg))
+        print("------------------------------------------------------------------------------------------")
 
-def run_performance_test_cmd(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, outFilePath, additionalArg):
+def run_performance_test_cmd(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, bitDepth, outFilePath, additionalArg):
     with open(loggingFolder + "/Tensor_misc_hip_raw_performance_log.txt", "a") as logFile:
-        logFile.write("./Tensor_misc_hip " + str(case) + " " + str(testType) + " " + str(toggle) + " " + str(numDims) + " " + str(batchSize) + " " + str(numRuns) + " " + str(additionalArg) + "\n")
-        process = subprocess.Popen([buildFolderPath + "/build/Tensor_misc_hip", str(case), str(testType), str(toggle), str(numDims), str(batchSize), str(numRuns), str(additionalArg), outFilePath, scriptPath], stdout=subprocess.PIPE, stderr=subprocess.PIPE)    # nosec
+        logFile.write("./Tensor_misc_hip " + str(case) + " " + str(testType) + " " + str(toggle) + " " + str(numDims) + " " + str(batchSize) + " " + str(numRuns)+ " " + str(bitDepth) + " " + str(additionalArg) + "\n")
+        process = subprocess.Popen([buildFolderPath + "/build/Tensor_misc_hip", str(case), str(testType), str(toggle), str(numDims), str(batchSize), str(numRuns), str(bitDepth), str(additionalArg), outFilePath, scriptPath], stdout=subprocess.PIPE, stderr=subprocess.PIPE)    # nosec
         read_from_subprocess_and_write_to_log(process, logFile)
-        log_detected(process, errorLog, miscAugmentationMap[int(case)][0], get_bit_depth(int(2)), get_misc_func_name(int(case), numDims, additionalArg))
+        log_detected(process, errorLog, miscAugmentationMap[int(case)][0], get_bit_depth(int(bitDepth)), get_misc_func_name(int(case), numDims, additionalArg))
 
-def run_performance_test_with_profiler_cmd(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, outFilePath, additionalArg):
+def run_performance_test_with_profiler_cmd(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, bitDepth, outFilePath, additionalArg):
     if not os.path.exists(outFilePath + "/case_" + str(case)):
         os.mkdir(outFilePath + "/case_" + str(case))
 
     with open(loggingFolder + "/Tensor_misc_hip_raw_performance_log.txt", "a") as logFile:
         logFile.write("\nrocprof --basenames on --timestamp on --stats -o " + outFilePath + "/case_" + str(case) + "/output_case" + str(case) + ".csv ./Tensor_misc_hip " + str(case) + " " + str(testType) + " " + str(toggle) + " " + str(numDims) + " " + str(batchSize) + " " + str(numRuns) + " " + str(additionalArg) + "\n")
-        process = subprocess.Popen(['rocprof', '--basenames', 'on', '--timestamp', 'on', '--stats', '-o', outFilePath + "/case_" + str(case) + "/output_case" + str(case) + ".csv", "./Tensor_misc_hip", str(case), str(testType), str(toggle), str(numDims), str(batchSize), str(numRuns), str(additionalArg), outFilePath, scriptPath], stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # nosec
+        process = subprocess.Popen(['rocprof', '--basenames', 'on', '--timestamp', 'on', '--stats', '-o', outFilePath + "/case_" + str(case) + "/output_case" + str(case) + ".csv", "./Tensor_misc_hip", str(case), str(testType), str(toggle), str(numDims), str(batchSize), str(numRuns), str(bitDepth), str(additionalArg), outFilePath, scriptPath], stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # nosec
         read_from_subprocess_and_write_to_log(process, logFile)
-        log_detected(process, errorLog, miscAugmentationMap[int(case)][0], get_bit_depth(int(2)), get_misc_func_name(int(case), numDims, additionalArg))
+        log_detected(process, errorLog, miscAugmentationMap[int(case)][0], get_bit_depth(int(bitDepth)), get_misc_func_name(int(case), numDims, additionalArg))
     print("------------------------------------------------------------------------------------------")
 
 def run_test(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, outFilePath, additionalArg, profilingOption = 'NO'):
+    bitDepths = [0, 2]
+    if int(case) == 2:   
+        bitDepths = [2, 4]
+    elif int(case) == 4:
+        bitDepths = [11]
+    elif testType == 1:
+        bitDepths = [0, 1, 2, 5]
     if testType == 0:
-        run_unit_test_cmd(numDims, case, numRuns, testType, toggle, batchSize, outFilePath, additionalArg)
+        run_unit_test_cmd(numDims, case, numRuns, testType, toggle, batchSize, outFilePath, bitDepths, additionalArg)
     elif testType == 1 and profilingOption == "NO":
         print("\n")
-        run_performance_test_cmd(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, outFilePath, additionalArg)
+        for bitDepth in bitDepths:
+            run_performance_test_cmd(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, bitDepth, outFilePath, additionalArg)
     elif testType == 1 and profilingOption == "YES":
         print("\n")
-        run_performance_test_with_profiler_cmd(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, outFilePath, additionalArg)
+        for bitDepth in bitDepths:
+            run_performance_test_with_profiler_cmd(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, bitDepth, outFilePath, additionalArg)
 
 # Parse and validate command-line arguments for the RPP test suite
 def rpp_test_suite_parser_and_validator():
@@ -116,7 +126,7 @@ def rpp_test_suite_parser_and_validator():
     parser.add_argument('--test_type', type = int, default = 0, help = "Type of Test - (0 = QA tests / 1 = Performance tests)")
     parser.add_argument('--toggle', type = int, default = 0, help = "Toggle outputs")
     parser.add_argument('--case_list', nargs = "+", help = "A list of specific case numbers to run separated by spaces", required = False)
-    parser.add_argument("--num_dims", type = int, default = 2, help = "Number of dimensions for input")
+    parser.add_argument("--num_dims_list", type=int, nargs='+', default=[2, 3, 4], help="List of input dimensions (e.g., 2 3 4)")
     parser.add_argument('--num_runs', type = int, default = 1, help = "Specifies the number of runs for running the performance tests")
     parser.add_argument('--profiling', type = str , default = 'NO', help = 'Run with profiler? - (YES/NO)', required = False)
     parser.add_argument('--qa_mode', type = int, default = 0, help = "Run with qa_mode? Outputs from tests will be compared with golden outputs - (0 / 1)", required = False)
@@ -177,7 +187,7 @@ caseEnd = args.case_end
 testType = args.test_type
 toggle = args.toggle
 caseList = args.case_list
-numDims = args.num_dims
+numDimsList = args.num_dims_list
 numRuns = args.num_runs
 profilingOption = args.profiling
 batchSize = args.batch_size
@@ -220,21 +230,26 @@ os.chdir(buildFolderPath + "/build")
 subprocess.call(["cmake", scriptPath], cwd=".")   # nosec
 subprocess.call(["make", "-j16"], cwd=".")    # nosec
 
-noCaseSupported = all(int(case) not in miscAugmentationMap.keys() for case in caseList)
+supportedCaseList = [key for key, values in miscAugmentationMap.items() if "HIP" in values]
+noCaseSupported = all(int(case) not in supportedCaseList for case in caseList)
 if noCaseSupported:
     print("\ncase numbers %s are not supported" % caseList)
     exit(0)
 for case in caseList:
     if int(case) not in miscAugmentationMap:
         continue
-    if case == "0":
-        for transposeOrder in range(1, numDims):
-            run_test(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, outFilePath, transposeOrder, profilingOption)
-    elif case == "1":
-        for axisMask in range(1, pow(2, numDims)):
-            run_test(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, outFilePath, axisMask, profilingOption)
-    else:
-        run_test(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, outFilePath, "", profilingOption)
+    for numDims in numDimsList:
+        if miscAugmentationMap[int(case)][0] == "transpose":
+            for transposeOrder in range(1, numDims):
+                run_test(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, outFilePath, transposeOrder, profilingOption)
+        elif miscAugmentationMap[int(case)][0] == "normalize":
+            for axisMask in range(1, pow(2, numDims)):
+                run_test(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, outFilePath, axisMask, profilingOption)
+        elif miscAugmentationMap[int(case)][0] == "concat":
+            for axisMask in range(0, numDims):
+                run_test(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, outFilePath, axisMask, profilingOption)
+        else:
+            run_test(loggingFolder, numDims, case, numRuns, testType, toggle, batchSize, outFilePath, "", profilingOption)
 
 if (testType == 1 and profilingOption == "YES"):
     RESULTS_DIR = outFolderPath + "/OUTPUT_PERFORMANCE_MISC_LOGS_HIP_" + timestamp
@@ -288,7 +303,7 @@ if testType == 0:
     checkFile = os.path.isfile(qaFilePath)
     if checkFile:
         print("---------------------------------- Results of QA Test - Tensor_misc_hip ----------------------------------\n")
-        print_qa_tests_summary(qaFilePath, list(miscAugmentationMap.keys()), nonQACaseList, "Tensor_misc_hip")
+        print_qa_tests_summary(qaFilePath, supportedCaseList, nonQACaseList, "Tensor_misc_hip")
 
 # Performance tests
 if (testType == 1 and profilingOption == "NO"):

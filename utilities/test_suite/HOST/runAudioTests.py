@@ -1,7 +1,7 @@
 """
 MIT License
 
-Copyright (c) 2019 - 2024 Advanced Micro Devices, Inc.
+Copyright (c) 2019 - 2025 Advanced Micro Devices, Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -35,8 +35,8 @@ scriptPath = os.path.dirname(os.path.realpath(__file__))
 inFilePath = scriptPath + "/../TEST_AUDIO_FILES/three_samples_single_channel_src1"
 outFolderPath = os.getcwd()
 buildFolderPath = os.getcwd()
-caseMin = 0
-caseMax = 7
+caseMin = min(audioAugmentationMap.keys())
+caseMax = max(audioAugmentationMap.keys())
 errorLog = [{"notExecutedFunctionality" : 0}]
 
 # Get a list of log files based on a flag for preserving output
@@ -194,7 +194,7 @@ if noCaseSupported:
 
 for case in caseList:
     if "--input_path" not in sys.argv:
-        if case == "3":
+        if audioAugmentationMap[int(case)][0] == "down_mixing":
             srcPath = scriptPath + "/../TEST_AUDIO_FILES/three_sample_multi_channel_src1"
         else:
             srcPath = inFilePath
@@ -205,13 +205,14 @@ for case in caseList:
 
 # print the results of qa tests
 nonQACaseList = [] # Add cases present in supportedCaseList, but without QA support
+supportedCaseList = [key for key, values in audioAugmentationMap.items() if "HOST" in values]
 
 if testType == 0:
     qaFilePath = os.path.join(outFilePath, "QA_results.txt")
     checkFile = os.path.isfile(qaFilePath)
     if checkFile:
         print("---------------------------------- Results of QA Test - Tensor_audio_host -----------------------------------\n")
-        print_qa_tests_summary(qaFilePath, list(audioAugmentationMap.keys()), nonQACaseList, "Tensor_audio_host")
+        print_qa_tests_summary(qaFilePath, supportedCaseList, nonQACaseList, "Tensor_audio_host")
 
 # Performance tests
 if (testType == 1):
@@ -226,4 +227,3 @@ if len(errorLog) > 1 or errorLog[0]["notExecutedFunctionality"] != 0:
     if(errorLog[0]["notExecutedFunctionality"] != 0):
         print(str(errorLog[0]["notExecutedFunctionality"]) + " functionality variants requested by test_suite_audio_host were not executed since these sub-variants are not currently supported in RPP.\n")
     print("-----------------------------------------------------------------------------------------------")
-

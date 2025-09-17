@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2019 - 2024 Advanced Micro Devices, Inc.
+Copyright (c) 2019 - 2025 Advanced Micro Devices, Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -105,24 +105,24 @@ int main(int argc, char **argv)
         if(testCase == COLOR_TWIST || testCase == COLOR_CAST || testCase == GLITCH || testCase == COLOR_TEMPERATURE || testCase == COLOR_TO_GREYSCALE)
         {
             cout << "\ncase " << testCase << " does not exist for PLN1 layout\n";
-            return -1;
+            return RPP_ERROR_NOT_IMPLEMENTED;
         }
         else if (outputFormatToggle != 0)
         {
             cout << "\nPLN1 cases don't have outputFormatToggle! Please input outputFormatToggle = 0\n";
-            return -1;
+            return RPP_ERROR_NOT_IMPLEMENTED;
         }
     }
 
     if(pln1OutTypeCase && outputFormatToggle != 0)
     {
         cout << "\ntest case " << testCase << " don't have outputFormatToggle! Please input outputFormatToggle = 0\n";
-        return -1;
+        return RPP_ERROR_NOT_IMPLEMENTED;
     }
     else if (reductionTypeCase && outputFormatToggle != 0)
     {
         cout << "\nReduction Kernels don't have outputFormatToggle! Please input outputFormatToggle = 0\n";
-        return -1;
+        return RPP_ERROR_NOT_IMPLEMENTED;
     }
     else if(batchSize > MAX_BATCH_SIZE)
     {
@@ -187,10 +187,8 @@ int main(int argc, char **argv)
     std::string noiseTypeName = "";
     if (kernelSizeCase)
     {
-        char additionalParam_char[2];
-        std::snprintf(additionalParam_char, sizeof(additionalParam_char), "%u", additionalParam);
         func += "_kernelSize";
-        func += additionalParam_char;
+        func += std::to_string(additionalParam);
     }
     else if (interpolationTypeCase)
     {
@@ -203,6 +201,16 @@ int main(int argc, char **argv)
         noiseTypeName = get_noise_type(additionalParam);
         func += "_noiseType";
         func += noiseTypeName.c_str();
+    }
+    else if (testCase == CHANNEL_PERMUTE)
+    {
+        if (additionalParam < 0 || additionalParam > 5)
+        {
+            std::cerr << "Error: permutationIdx out of valid range (0 to 5). Received: " << additionalParam << std::endl;
+            exit(0);
+        }
+        func += "_permOrder";
+        func += std::to_string(additionalParam);
     }
 
     if(!qaFlag)
@@ -1237,6 +1245,32 @@ int main(int argc, char **argv)
 
                     break;
                 }
+                case ERODE:
+                {
+                    testCaseName = "erode";
+                    Rpp32u kernelSize = additionalParam;
+
+                    startWallTime = omp_get_wtime();
+                    if (inputBitDepth == 0 || inputBitDepth == 1 || inputBitDepth == 2 || inputBitDepth == 5)
+                        rppt_erode_gpu(d_input, srcDescPtr, d_output, dstDescPtr, kernelSize, roiTensorPtrSrc, roiTypeSrc, handle);
+                    else
+                        missingFuncFlag = 1;
+
+                    break;
+                }
+                case DILATE:
+                {
+                    testCaseName= "dilate";
+                    Rpp32u kernelSize = additionalParam;
+
+                    startWallTime = omp_get_wtime();
+                    if (inputBitDepth == 0 || inputBitDepth == 1 || inputBitDepth == 2 || inputBitDepth == 5)
+                        rppt_dilate_gpu(d_input, srcDescPtr, d_output, dstDescPtr, kernelSize, roiTensorPtrSrc, roiTypeSrc, handle);
+                    else
+                        missingFuncFlag = 1;
+
+                    break;
+                }
                 case BOX_FILTER:
                 {
                     testCaseName = "box_filter";
@@ -1475,15 +1509,22 @@ int main(int argc, char **argv)
 
                     break;
                 }
-                case SWAP_CHANNELS:
+                case CHANNEL_PERMUTE:
                 {
-                    testCaseName = "swap_channels";
+                    testCaseName = "channel_permute";
+
+                    Rpp32u *permutationTensor = nullptr;
+                    CHECK_RETURN_STATUS(hipHostMalloc(&permutationTensor, 3 * batchSize * sizeof(Rpp32u)));
+                    for(int i = 0; i < batchSize; i++)
+                        fill_perm_values(&permutationTensor[i * 3], qaFlag, additionalParam);
 
                     startWallTime = omp_get_wtime();
                     if (inputBitDepth == 0 || inputBitDepth == 1 || inputBitDepth == 2 || inputBitDepth == 5)
-                        rppt_swap_channels_gpu(d_input, srcDescPtr, d_output, dstDescPtr, handle);
+                        rppt_channel_permute_gpu(d_input, srcDescPtr, d_output, dstDescPtr, permutationTensor, handle);
                     else
                         missingFuncFlag = 1;
+
+                    CHECK_RETURN_STATUS(hipHostFree(permutationTensor));
 
                     break;
                 }
@@ -1588,6 +1629,17 @@ int main(int argc, char **argv)
                     startWallTime = omp_get_wtime();
                     if((inputBitDepth == 0 || inputBitDepth == 2) && srcDescPtr->layout == dstDescPtr->layout)
                         rppt_slice_gpu(d_input, descriptorPtr3D, d_output, descriptorPtr3D, anchorTensor, shapeTensor, &fillValue, enablePadding, roiTensor, handle);
+                    else
+                        missingFuncFlag = 1;
+
+                    break;
+                }
+                case 93:
+                {
+                    testCaseName = "jpeg_compression_distortion";
+                    startWallTime = omp_get_wtime();
+                    if (inputBitDepth == 0 || inputBitDepth == 1 || inputBitDepth == 2 || inputBitDepth == 5)
+                        rppt_jpeg_compression_distortion_gpu(d_input, srcDescPtr, d_output, dstDescPtr, roiTensorPtrSrc, roiTypeSrc, handle);
                     else
                         missingFuncFlag = 1;
 
@@ -1731,8 +1783,8 @@ int main(int argc, char **argv)
                 2.input bit depth 0 (Input U8 && Output U8)
                 3.source and destination layout are the same
                 4.augmentation case does not generate random output*/
-                if(qaFlag && inputBitDepth == 0 && (!(randomOutputCase) && !(nonQACase)))
-                    compare_output<Rpp8u>(outputu8, testCaseName, srcDescPtr, dstDescPtr, dstImgSizes, batchSize, interpolationTypeName, noiseTypeName, additionalParam, testCase, dst, scriptPath);
+                if(qaFlag && (inputBitDepth == 0 || inputBitDepth == 2) && (!(randomOutputCase) && !(nonQACase)))
+                    compare_output(output, testCaseName, srcDescPtr, dstDescPtr, dstImgSizes, batchSize, interpolationTypeName, noiseTypeName, additionalParam, testCase, dst, scriptPath);
 
                 // Calculate exact dstROI in XYWH format for OpenCV dump
                 if (roiTypeSrc == RpptRoiType::LTRB)

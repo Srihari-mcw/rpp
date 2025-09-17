@@ -1,7 +1,7 @@
 #[[
 MIT License
 
-Copyright (c) 2019 - 2024 Advanced Micro Devices, Inc.
+Copyright (c) 2019 - 2025 Advanced Micro Devices, Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -33,14 +33,16 @@ else()
     set(ROCM_PATH /opt/rocm CACHE PATH "Default ROCm installation path")
 endif()
 # Set AMD Clang as default compiler
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED On)
+set(CMAKE_CXX_EXTENSIONS ON)
 if(NOT DEFINED CMAKE_CXX_COMPILER AND EXISTS "${ROCM_PATH}/bin/amdclang++")
     set(CMAKE_C_COMPILER ${ROCM_PATH}/bin/amdclang)
     set(CMAKE_CXX_COMPILER ${ROCM_PATH}/bin/amdclang++)
 elseif(NOT DEFINED CMAKE_CXX_COMPILER AND NOT EXISTS "${ROCM_PATH}/bin/amdclang++")
+    set(CMAKE_C_COMPILER clang)
     set(CMAKE_CXX_COMPILER clang++)
 endif()
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED On)
 
 project(test_suite/HIP)
 
@@ -133,7 +135,7 @@ else()
         find_package(OpenCV QUIET)
         find_package(TurboJpeg QUIET)
         find_package(StdFilesystem QUIET)
-        
+
         # find required python3-pip imports
         execute_process(
             COMMAND ${Python3_EXECUTABLE} -m pip show pandas
@@ -152,7 +154,7 @@ else()
             message("-- ${Green}HIP found at HIP_INCLUDE_DIRS - ${HIP_INCLUDE_DIRS} and HIP_LIBRARIES - ${HIP_LIBRARIES}${ColourReset}")
             include_directories(${HIP_INCLUDE_DIRS} ${HIP_INCLUDE_DIRS}/hip)
             set(LINK_LIBRARY_LIST ${LINK_LIBRARY_LIST} ${HIP_LIBRARIES})
-            
+
             if(Python3_FOUND)
                 message("-- ${Green}Python3 found${ColourReset}")
                 # Check pandas for all RPP rocprof performance test results
@@ -164,6 +166,10 @@ else()
                     include_directories(${ROCM_PATH}/include ${ROCM_PATH}/include/rpp /usr/local/include)
                     link_directories(${ROCM_PATH}/lib /usr/local/lib)
                     link_directories(${ROCM_PATH}/lib/llvm/lib)
+
+                    if(NOT APPLE)
+                        set(LINK_LIBRARY_LIST ${LINK_LIBRARY_LIST} stdc++fs)
+                    endif()
 
                     if(OpenMP_CXX_FOUND)
                         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
