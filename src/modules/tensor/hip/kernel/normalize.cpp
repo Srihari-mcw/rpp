@@ -326,7 +326,8 @@ __global__ void compute_mean_2d_hip_tensor(T *srcPtr,
                 accum += static_cast<float>(srcPtr[srcIdx]);
                 srcIdx += srcStridesNH.y;
             }
-            meanTensor[dstIdx] = accum / static_cast<float>(height);
+            float normFactor = 1 / static_cast<float>(height);
+            meanTensor[dstIdx] = accum * normFactor;
         }
     }
     // compute partial sums needed for row wise mean
@@ -737,16 +738,16 @@ __global__ void compute_mean_nd_hip_tensor(T *srcPtr,
             paramIndex += (maxParamVolume > 1) ? ((coord % paramShape[i]) * paramStrides[i]) : 0;
         }
 
-        extern __shared__ float sh_mem[];
+        extern __shared__ double sh_mem[];
         sh_mem[hipThreadIdx_x] = 0.0f;
         __syncthreads();
 
         if (isValid && id_x < maxBufferLength)
-            atomicAdd(&sh_mem[paramIndex], static_cast<float>(srcPtr[srcIdx]));
+            atomicAdd(&sh_mem[paramIndex], static_cast<double>(srcPtr[srcIdx]));
         __syncthreads();
 
         if (hipThreadIdx_x < maxParamVolume)
-            atomicAdd(&meanTensor[paramBase + hipThreadIdx_x], sh_mem[hipThreadIdx_x]);
+            atomicAdd(&meanTensor[paramBase + hipThreadIdx_x], static_cast<float>(sh_mem[hipThreadIdx_x]));
     }
 }
 
@@ -1246,7 +1247,7 @@ __global__ void compute_stddev_nd_hip_tensor(T *srcPtr,
             paramIndex += (maxParamVolume > 1) ? ((coord % paramShape[i]) * paramStrides[i]) : 0;
         }
 
-        extern __shared__ float sh_mem[];
+        extern __shared__ double sh_mem[];
         sh_mem[hipThreadIdx_x] = 0.0f;
         __syncthreads();
 
@@ -1354,12 +1355,14 @@ __global__ void final_reduction_nd_hip_tensor(float *meanTensor,
 
     if (id_x >= paramVolume)
         return;
+    
+    float normFactor = 1 / static_cast<float>(divisionFactor);
 
     uint paramIndex = id_z * maxParamVolume + id_x;
     if (isMean)
-        meanTensor[paramIndex] = meanTensor[paramIndex] / divisionFactor;
+        meanTensor[paramIndex] = meanTensor[paramIndex] * normFactor;
     else
-        stdDevTensor[paramIndex] = sqrtf(stdDevTensor[paramIndex] / divisionFactor);
+        stdDevTensor[paramIndex] = sqrtf(stdDevTensor[paramIndex] * normFactor);
 }
 
 // -------------------- Set 7 - mean and stddev compute kernels launch helpers --------------------
@@ -1748,9 +1751,10 @@ RppStatus hip_exec_compute_mean_stddev_tensor(T *srcPtr,
                 shared_memory_size = MAX_SHARED_MEMORY_SIZE;
             block_size = shared_memory_size;
         }
-        shared_memory_size *= sizeof(float); // Convert shared memory size from number of floats to bytes
+        shared_memory_size *= sizeof(double); // Convert shared memory size from number of floats to bytes
         if (isMean)
         {
+            printf("maxParamVolume mean is %d\n", maxParamVolume);
             hipLaunchKernelGGL(compute_mean_nd_hip_tensor,
                                dim3(ceil((float)globalThreads_x/block_size), ceil((float)globalThreads_y), ceil((float)globalThreads_z)),
                                dim3(block_size, 1, 1),
@@ -1769,6 +1773,7 @@ RppStatus hip_exec_compute_mean_stddev_tensor(T *srcPtr,
         }
         else
         {
+            printf("maxParamVolume stddev is %d\n", maxParamVolume);
             hipLaunchKernelGGL(compute_stddev_nd_hip_tensor,
                                dim3(ceil((float)globalThreads_x/block_size), ceil((float)globalThreads_y), ceil((float)globalThreads_z)),
                                dim3(block_size, 1, 1),
