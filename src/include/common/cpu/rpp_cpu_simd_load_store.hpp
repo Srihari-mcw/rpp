@@ -2169,6 +2169,9 @@ inline void rpp_store48_preserve_f32pln3_to_i8pkd3_avx(Rpp8s *dstPtr, __m256 *p)
     px[3] = _mm_packs_epi32(_mm256_extracti128_si256(pxCvt[0], 1), _mm256_extracti128_si256(pxCvt[1], 1));    /* pack pixels 0-7 as R05-08|G05-08 */
     px[4] = _mm_packs_epi32(_mm256_extracti128_si256(pxCvt[2], 1), xmm_px0);    /* pack pixels 8-15 as B05-08|X05-08 */
     px[1] = _mm_packs_epi16(px[3], px[4]);    /* pack pixels 0-15 as [R05|R06|R07|R08|G05|G06|G07|G08|B05|B06|B07|B08|00|00|00|00] */
+    pxCvt[0] = _mm256_cvtps_epi32(p[1]);    /* convert to int32 for R09-16 */
+    pxCvt[1] = _mm256_cvtps_epi32(p[3]);    /* convert to int32 for G09-16 */
+    pxCvt[2] = _mm256_cvtps_epi32(p[5]);    /* convert to int32 for B09-16 */
     px[3] = _mm_packs_epi32(_mm256_extracti128_si256(pxCvt[0], 0), _mm256_extracti128_si256(pxCvt[1], 0));    /* pack pixels 0-7 as R09-12|G09-12 */
     px[4] = _mm_packs_epi32(_mm256_extracti128_si256(pxCvt[2], 0), xmm_px0);    /* pack pixels 8-15 as B09-12|X09-12 */
     px[2] = _mm_packs_epi16(px[3], px[4]);    /* pack pixels 0-15 as [R09|R10|R11|R12|G09|G10|G11|G12|B09|B10|B11|B12|00|00|00|00] */
@@ -2252,7 +2255,7 @@ inline void rpp_load32_preserve_i8_to_f32_avx(Rpp8s *srcPtr, __m256 *p)
     p[0] = _mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(px1));    /* Contains pixels 01-08 */
     p[1] = _mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(_mm_srli_si128(px1, 8)));    /* Contains pixels 09-16 */
     p[2] = _mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(px2));    /* Contains pixels 17-24 */
-    p[3] = _mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(_mm_srli_si128(px3, 8)));    /* Contains pixels 25-32 */
+    p[3] = _mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(_mm_srli_si128(px2, 8)));    /* Contains pixels 25-32 */
 }
 
 inline void rpp_load40_preserve_i8_to_f32_avx(Rpp8s *srcPtr, __m256 *p)
@@ -4022,7 +4025,6 @@ inline void rpp_store12_float_pkd_pln(Rpp8s **dstPtrTempChannels, __m128 *pDst)
         px[0] = _mm_packs_epi32(px[0], px[1]);    /* pixels 0-7 */
         px[1] = _mm_packs_epi32(px[2], px[3]);    /* pixels 8-15 */
         px[0] = _mm_packs_epi16(px[0], px[1]);    /* pixels 0-15 */
-        px[0] = _mm_sub_epi8(px[0], xmm_pxConvertI8);    /* convert back to i8 for px0 store */
         _mm_storeu_si32((__m128i *)dstPtrTempChannels[i], px[0]);    /* store pixels 0-15 */
     }
 }
