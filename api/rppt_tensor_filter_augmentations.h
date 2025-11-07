@@ -159,6 +159,7 @@ RppStatus rppt_median_filter_gpu(RppPtr_t srcPtr, RpptDescPtr srcDescPtr, RppPtr
  * \param [in] dstDescPtr destination tensor descriptor (Restrictions - numDims = 4, offsetInBytes >= 0, dataType = U8/F16/F32/I8, layout = NCHW/NHWC, c = same as that of srcDescPtr)
  * \param [in] stdDevTensor stdDev values for gaussian calculation (1D tensor in HOST memory, of size batchSize, for each image in batch)
  * \param [in] kernelSize kernel size for gaussian filter (a single Rpp32u number with kernelSize > 0 that applies to all images in the batch. kernelSize = 3/5/7/9 are optimized to run faster)
+ * \param [in] borderType border type for padding during filtering (Restrictions - RpptImageBorderType::REPLICATE only mode supported)
  * \param [in] roiTensorPtrSrc ROI data in HOST memory, for each image in source tensor (2D tensor of size batchSize * 4, in either format - XYWH(xy.x, xy.y, roiWidth, roiHeight) or LTRB(lt.x, lt.y, rb.x, rb.y))
  * \param [in] roiType ROI type used (RpptRoiType::XYWH or RpptRoiType::LTRB)
  * \param [in] rppHandle RPP HOST handle created with <tt>\ref rppCreate()</tt>
@@ -183,6 +184,7 @@ RppStatus rppt_gaussian_filter_host(RppPtr_t srcPtr, RpptDescPtr srcDescPtr, Rpp
  * \param [in] dstDescPtr destination tensor descriptor (Restrictions - numDims = 4, offsetInBytes >= 0, dataType = U8/F16/F32/I8, layout = NCHW/NHWC, c = same as that of srcDescPtr)
  * \param [in] stdDevTensor stdDev values for gaussian calculation (1D tensor in pinned/HOST memory, of size batchSize, for each image in batch)
  * \param [in] kernelSize kernel size for gaussian filter (a single Rpp32u odd number with kernelSize = 3/5/7/9 that applies to all images in the batch)
+ * \param [in] borderType border type for padding during filtering (Restrictions - RpptImageBorderType::REPLICATE only mode supported)
  * \param [in] roiTensorPtrSrc ROI data in HIP memory, for each image in source tensor (2D tensor of size batchSize * 4, in either format - XYWH(xy.x, xy.y, roiWidth, roiHeight) or LTRB(lt.x, lt.y, rb.x, rb.y))
  * \param [in] roiType ROI type used (RpptRoiType::XYWH or RpptRoiType::LTRB)
  * \param [in] rppHandle RPP HIP handle created with <tt>\ref rppCreate()</tt>
