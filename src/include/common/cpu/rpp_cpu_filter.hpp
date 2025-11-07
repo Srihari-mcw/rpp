@@ -116,12 +116,14 @@ inline void convolution_filter_generic_tensor(T **srcPtrTemp, T *dstPtrTemp, Rpp
     if constexpr (std::is_same<T, Rpp8u>::value || std::is_same<T, Rpp8s>::value)
         accum = nearbyintf(accum);
 
-    if constexpr (std::is_same<T, Rpp8u>::value || std::is_same<T, Rpp8s>::value)
-        *dstPtrTemp = static_cast<T>(std::nearbyintf(accum));
+    if constexpr (std::is_same<T, Rpp8u>::value)
+        *dstPtrTemp = static_cast<Rpp8u>(RPPPIXELCHECK(accum));
+    else if constexpr (std::is_same<T, Rpp8s>::value)
+        *dstPtrTemp = static_cast<Rpp8s>(RPPPIXELCHECKI8(accum));
     else if constexpr (std::is_same<T, Rpp16f>::value)
-        *dstPtrTemp = static_cast<Rpp16f>(accum);
+        *dstPtrTemp = static_cast<Rpp16f>(RPPPIXELCHECKF32(accum));
     else
-        *dstPtrTemp = accum;
+        *dstPtrTemp = static_cast<Rpp32f>(RPPPIXELCHECKF32(accum));
 }
 
 // process padLength number of columns in each row

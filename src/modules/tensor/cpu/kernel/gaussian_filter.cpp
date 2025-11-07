@@ -369,7 +369,7 @@ RppStatus gaussian_filter_host_tensor(T *srcPtr,
                         else if constexpr (std::is_same<T, Rpp8u>::value)
                             rpp_simd_store(rpp_store48_f32pln3_to_u8pkd3_avx, dstPtrTemp, pResult);
                         else if constexpr (std::is_same<T, Rpp8s>::value)
-                            rpp_simd_store(rpp_store48_preserve_f32pln3_to_i8pkd3_avx, dstPtrTemp, pResult);
+                            rpp_simd_store(rpp_store48_f32pln3_to_i8pkd3_avx<PreserveRange>, dstPtrTemp, pResult);
                         dstPtrTemp += 42;
                     }
 #endif
