@@ -439,6 +439,8 @@ inline void permute_blend_add_9x9_pkd(__m256 &pDst, __m256 *pRow, __m256 *pFilte
 
 // -------------------- Filter load functions for NxN kernels - 3x3, 5x5, 7x7 and 9x9 --------------------
 
+// -------------------- Filter load functions for NxN kernels - 3x3, 5x5, 7x7 and 9x9 --------------------
+
 template<int FILTER_SIZE, typename T>
 inline void rpp_load_filter_NxN_pln_host(__m256 *pRow, T **srcPtrTemp, Rpp32s rowKernelLoopLimit, Rpp32s padIndex)
 {
@@ -456,7 +458,7 @@ inline void rpp_load_filter_NxN_pln_host(__m256 *pRow, T **srcPtrTemp, Rpp32s ro
         int clampedIndex = std::max(0, std::min(desiredIndex, rowKernelLoopLimit - 1));
 
         if constexpr (std::is_same_v<T, Rpp8s>)
-            rpp_load16_i8_to_f32_avx(srcPtrTemp[clampedIndex], &pRow[k * 2]);
+            rpp_load16_preserve_i8_to_f32_avx(srcPtrTemp[clampedIndex], &pRow[k * 2]);
         else if constexpr (std::is_same_v<T, Rpp8u>)
             rpp_load16_u8_to_f32_avx(srcPtrTemp[clampedIndex], &pRow[k * 2]);
         else if constexpr (std::is_same_v<T, Rpp16f>)
@@ -485,7 +487,7 @@ inline void rpp_load_filter_NxN_pkd_host(__m256 *pRow, T **srcPtrTemp, Rpp32s ro
         if constexpr (std::is_same_v<T, Rpp8u>)
             rpp_load32_u8_to_f32_avx(srcPtrTemp[clampedIndex], &pRow[k * 4]);
         else if constexpr (std::is_same_v<T, Rpp8s>)
-            rpp_load32_i8_to_f32_avx(srcPtrTemp[clampedIndex], &pRow[k * 4]);
+            rpp_load32_preserve_i8_to_f32_avx(srcPtrTemp[clampedIndex], &pRow[k * 4]);
         else if constexpr (std::is_same_v<T, Rpp32f>)
             rpp_load32_f32_to_f32_avx(srcPtrTemp[clampedIndex], &pRow[k * 4]);
         else if constexpr (std::is_same_v<T, Rpp16f>)
@@ -513,7 +515,7 @@ inline void rpp_load_gaussian_filter_9x9_pkd_pln_host(__m256 *pRow, T **srcPtrTe
         if constexpr (std::is_same_v<T, Rpp8u>)
             rpp_load40_u8_to_f32_avx(srcPtrTemp[clampedIndex], &pRow[k * 5]);
         else if constexpr (std::is_same_v<T, Rpp8s>)
-            rpp_load40_i8_to_f32_avx(srcPtrTemp[clampedIndex], &pRow[k * 5]);
+            rpp_load40_preserve_i8_to_f32_avx(srcPtrTemp[clampedIndex], &pRow[k * 5]);
         else if constexpr (std::is_same_v<T, Rpp32f>)
             rpp_load40_f32_to_f32_avx(srcPtrTemp[clampedIndex], &pRow[k * 5]);
         else if constexpr (std::is_same_v<T, Rpp16f>)
