@@ -209,7 +209,7 @@ int main(int argc, char **argv)
 
                 startWallTime = omp_get_wtime();
                 if (BitDepthTestMode == U8_TO_U8 || BitDepthTestMode == F16_TO_F16 || BitDepthTestMode == F32_TO_F32 || BitDepthTestMode == I8_TO_I8)
-                    rppt_transpose_host(input, srcDescriptorPtrND, output, dstDescriptorPtrND, permTensor, roiTensor, handle);
+                    rppt_transpose(input, srcDescriptorPtrND, output, dstDescriptorPtrND, permTensor, roiTensor, handle, RPP_HOST_BACKEND);
                 else
                     missingFuncFlag = 1;
 
@@ -247,7 +247,7 @@ int main(int argc, char **argv)
 
                 startWallTime = omp_get_wtime();
                 if (BitDepthTestMode == U8_TO_U8 || BitDepthTestMode == F16_TO_F16 || BitDepthTestMode == F32_TO_F32 || BitDepthTestMode == I8_TO_I8)
-                    rppt_normalize_host(input, srcDescriptorPtrND, output, dstDescriptorPtrND, axisMask, meanTensor, stdDevTensor, computeMeanStddev, scale, shift, roiTensor, handle);
+                    rppt_normalize(input, srcDescriptorPtrND, output, dstDescriptorPtrND, axisMask, meanTensor, stdDevTensor, computeMeanStddev, scale, shift, roiTensor, handle, RPP_HOST_BACKEND);
                 else
                     missingFuncFlag = 1;
 
@@ -271,7 +271,7 @@ int main(int argc, char **argv)
 
                 startWallTime = omp_get_wtime();
                 if (BitDepthTestMode == U8_TO_U8 || BitDepthTestMode == F16_TO_F16 || BitDepthTestMode == F32_TO_F32 || BitDepthTestMode == I8_TO_I8)
-                    rppt_concat_host(input, inputSecond, srcDescriptorPtrND, srcDescriptorPtrNDSecond, output, dstDescriptorPtrND, axisMask, roiTensor, roiTensorSecond, handle);
+                    rppt_concat(input, inputSecond, srcDescriptorPtrND, srcDescriptorPtrNDSecond, output, dstDescriptorPtrND, axisMask, roiTensor, roiTensorSecond, handle, RPP_HOST_BACKEND);
                 else
                     missingFuncFlag = 1;
 
