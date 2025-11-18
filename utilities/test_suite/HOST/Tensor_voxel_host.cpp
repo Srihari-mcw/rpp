@@ -355,7 +355,7 @@ int main(int argc, char * argv[])
 
                     startWallTime = omp_get_wtime();
                     if (BitDepthTestMode == F32_TO_F32)
-                        rppt_gaussian_noise_voxel_host(inputF32, descriptorPtr3D, outputF32, descriptorPtr3D, meanTensor, stdDevTensor, seed, roiGenericSrcPtr, roiTypeSrc, handle);
+                        rppt_gaussian_noise_voxel(inputF32, descriptorPtr3D, outputF32, descriptorPtr3D, meanTensor, stdDevTensor, seed, roiGenericSrcPtr, roiTypeSrc, handle, RPP_HOST_BACKEND);
                     else
                         missingFuncFlag = 1;
 
