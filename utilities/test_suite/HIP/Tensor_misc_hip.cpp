@@ -225,7 +225,7 @@ int main(int argc, char **argv)
 
                 startWallTime = omp_get_wtime();
                 if (BitDepthTestMode == U8_TO_U8 || BitDepthTestMode == F16_TO_F16 || BitDepthTestMode == F32_TO_F32 || BitDepthTestMode == I8_TO_I8)
-                    rppt_transpose_gpu(d_input, srcDescriptorPtrND, d_output, dstDescriptorPtrND, permTensor, roiTensor, handle);
+                    rppt_transpose(d_input, srcDescriptorPtrND, d_output, dstDescriptorPtrND, permTensor, roiTensor, handle, RPP_HIP_BACKEND);
                 else
                     missingFuncFlag = 1;
 
@@ -273,7 +273,7 @@ int main(int argc, char **argv)
 
                 startWallTime = omp_get_wtime();
                 if (BitDepthTestMode == U8_TO_U8 || BitDepthTestMode == F16_TO_F16 || BitDepthTestMode == F32_TO_F32 || BitDepthTestMode == I8_TO_I8)
-                    rppt_normalize_gpu(d_input, srcDescriptorPtrND, d_output, dstDescriptorPtrND, axisMask, meanTensor, stdDevTensor, computeMeanStddev, scale, shift, roiTensor, handle);
+                    rppt_normalize(d_input, srcDescriptorPtrND, d_output, dstDescriptorPtrND, axisMask, meanTensor, stdDevTensor, computeMeanStddev, scale, shift, roiTensor, handle, RPP_HIP_BACKEND);
                 else
                     missingFuncFlag = 1;
 
@@ -296,7 +296,7 @@ int main(int argc, char **argv)
                 testCaseName  = "concat";
                 startWallTime = omp_get_wtime();
                 if (BitDepthTestMode == U8_TO_U8 || BitDepthTestMode == F16_TO_F16 || BitDepthTestMode == F32_TO_F32 || BitDepthTestMode == I8_TO_I8)
-                    rppt_concat_gpu(d_input, d_inputSecond, srcDescriptorPtrND, srcDescriptorPtrNDSecond, d_output, dstDescriptorPtrND, axisMask, roiTensor, roiTensorSecond, handle);
+                    rppt_concat(d_input, d_inputSecond, srcDescriptorPtrND, srcDescriptorPtrNDSecond, d_output, dstDescriptorPtrND, axisMask, roiTensor, roiTensorSecond, handle, RPP_HIP_BACKEND);
                 else
                     missingFuncFlag = 1;
 
