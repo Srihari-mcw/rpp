@@ -650,6 +650,18 @@ RppStatus hip_exec_solarize_tensor(T *srcPtr,
                                    RpptRoiType roiType,
                                    rpp::Handle& handle);
 
+// -------------------- channel_dropout --------------------
+
+template <typename T>
+RppStatus hip_exec_channel_dropout_tensor(T *srcPtr,
+                                          RpptDescPtr srcDescPtr,
+                                          T *dstPtr,
+                                          RpptDescPtr dstDescPtr,
+                                          Rpp8u *dropoutTensor,
+                                          RpptROIPtr roiTensorPtrSrc,
+                                          RpptRoiType roiType,
+                                          rpp::Handle& handle);
+
 /**************************************** FILTER AUGMENTATIONS ****************************************/
 
 // -------------------- box_filter --------------------
@@ -887,6 +899,17 @@ RppStatus hip_exec_warp_perspective_tensor(T *srcPtr,
                                            RpptROIPtr roiTensorPtrSrc,
                                            RpptRoiType roiType,
                                            rpp::Handle& handle);
+
+// -------------------- fisheye --------------------
+
+template <typename T>
+RppStatus hip_exec_fisheye_tensor(T *srcPtr,
+                                  RpptDescPtr srcDescPtr,
+                                  T *dstPtr,
+                                  RpptDescPtr dstDescPtr,
+                                  RpptROIPtr roiTensorPtrSrc,
+                                  RpptRoiType roiType,
+                                  rpp::Handle& handle);
 
 /**************************************** MORPHOLOGICAL OPERATIONS ****************************************/
 
